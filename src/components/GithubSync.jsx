@@ -1,17 +1,33 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { encrypt, decrypt, isEncrypted } from '../utils/crypto';
 
-const GithubSync = ({ formData, setFormData }) => {
-    const [token, setToken] = useState(localStorage.getItem('github_token') || '');
+const GithubSync = ({ records, setRecords, encryptionKey }) => {
+    // Helper to get decrypted setting
+    const getDecryptedSetting = (key) => {
+        const val = localStorage.getItem(key) || '';
+        if (isEncrypted(val) && encryptionKey) {
+            return decrypt(val, encryptionKey) || val;
+        }
+        return val;
+    };
+
+    const [token, setToken] = useState(getDecryptedSetting('github_token'));
     const [repo, setRepo] = useState(localStorage.getItem('github_repo') || 'horey205/komi_sales');
     const [status, setStatus] = useState('');
     const [showSettings, setShowSettings] = useState(false);
+
+    // Re-initialize when encryptionKey changes (e.g. login)
+    useEffect(() => {
+        setToken(getDecryptedSetting('github_token'));
+    }, [encryptionKey]);
 
     const saveSettings = () => {
         if (!token) {
             setStatus('토큰을 입력해주세요.');
             return;
         }
-        localStorage.setItem('github_token', token);
+        const encryptedToken = encryptionKey ? encrypt(token, encryptionKey) : token;
+        localStorage.setItem('github_token', encryptedToken);
         localStorage.setItem('github_repo', repo);
         setStatus('설정 저장됨');
         setTimeout(() => setStatus(''), 2000);
@@ -38,10 +54,23 @@ const GithubSync = ({ formData, setFormData }) => {
             if (!response.ok) throw new Error('불러오기 실패');
 
             const data = await response.json();
-            const content = decodeURIComponent(escape(atob(data.content)));
-            const json = JSON.parse(content);
+            let contentString = decodeURIComponent(escape(atob(data.content)));
 
-            setFormData(json);
+            // Decrypt if encrypted
+            if (isEncrypted(contentString)) {
+                if (!encryptionKey) throw new Error('암호 해독 키가 없습니다.');
+                const decrypted = decrypt(contentString, encryptionKey);
+                if (decrypted === null) throw new Error('암호 해독 실패 (비밀번호 확인 필요)');
+                contentString = typeof decrypted === 'string' ? decrypted : JSON.stringify(decrypted);
+            }
+
+            let json = JSON.parse(contentString);
+
+            if (!Array.isArray(json)) {
+                json = json && Object.keys(json).length > 0 ? [{ ...json, id: Date.now(), updatedAt: new Date().toISOString() }] : [];
+            }
+
+            setRecords(json);
             setStatus('불러오기 완료!');
             setTimeout(() => setStatus(''), 2000);
         } catch (error) {
@@ -73,7 +102,10 @@ const GithubSync = ({ formData, setFormData }) => {
             const fileData = await getResponse.json();
             const sha = fileData.sha;
 
-            const content = btoa(unescape(encodeURIComponent(JSON.stringify(formData, null, 2))));
+            // Encrypt content before saving
+            const jsonString = JSON.stringify(records, null, 2);
+            const finalContentString = encryptionKey ? encrypt(jsonString, encryptionKey) : jsonString;
+            const content = btoa(unescape(encodeURIComponent(finalContentString)));
 
             const updateResponse = await fetch(`https://api.github.com/repos/${owner}/${repoName}/contents/data.json`, {
                 method: 'PUT',
@@ -101,128 +133,116 @@ const GithubSync = ({ formData, setFormData }) => {
 
     const downloadCSV = () => {
         try {
+            if (!records || records.length === 0) {
+                setStatus('내역이 없습니다.');
+                return;
+            }
+
             const rows = [];
-
-            // 1. Consultation Detail
-            const cons = formData.consultation || {};
-            rows.push(['[상담 내역]']);
-            rows.push(['항목', '내용']);
-            Object.entries(cons).forEach(([key, value]) => {
-                rows.push([key, `"${value || ''}"`]);
-            });
-            rows.push([]);
-
-            // 2. Estimates
-            ['estimate1', 'estimate2', 'estimate3'].forEach((estKey, idx) => {
-                const est = formData[estKey] || { items: [], total: 0, currency: 'KRW' };
-                rows.push([`[견적 ${idx + 1}차]`]);
-                rows.push(['모델명', '스펙', '수량', '단가', '합계']);
-                (est.items || []).forEach(item => {
-                    rows.push([`"${item.model || ''}"`, `"${item.spec || ''}"`, item.qty || 0, item.price || 0, (item.qty || 0) * (item.price || 0)]);
+            records.forEach((record, recordIdx) => {
+                const client = record.consultation?.clientName || '이름 없음';
+                rows.push([`=== 상담 ${recordIdx + 1} (${client}) ===`]);
+                const c = record.consultation || {};
+                rows.push(['[기본]', '업체', c.clientName, '담당', c.manager, '연락', c.phone1]);
+                ['estimate1', 'estimate2', 'estimate3', 'demo', 'contract'].forEach(k => {
+                    const s = record[k] || { total: 0, currency: 'KRW' };
+                    rows.push([k, s.total, s.currency]);
                 });
-                rows.push(['총계', '', '', '', `"${est.total} ${est.currency}"`]);
                 rows.push([]);
             });
 
-            const csvContent = rows.map(row => row.join(',')).join('\n');
+            const csvContent = rows.map(r => r.join(',')).join('\n');
             const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
-            const fileName = `sales_data_${new Date().toISOString().slice(0, 10)}.csv`;
-
-            link.setAttribute('href', url);
-            link.setAttribute('download', fileName);
-            link.style.visibility = 'hidden';
-            document.body.appendChild(link);
+            link.href = url;
+            link.download = `sales_export_${new Date().toISOString().slice(0, 10)}.csv`;
             link.click();
-            document.body.removeChild(link);
-
-            setStatus('CSV 다운로드 완료!');
-            setTimeout(() => setStatus(''), 2000);
-        } catch (error) {
-            console.error(error);
-            setStatus('CSV 다운로드 실패');
+            setStatus('CSV 완성!');
+        } catch (e) {
+            setStatus('CSV 오류');
         }
     };
 
     return (
-        <div className="flex items-center space-x-2">
-            <span className="text-xs font-medium text-blue-600 mr-1 truncate max-w-[80px] sm:max-w-none hidden sm:block">{status}</span>
+        <div className="flex items-center gap-1 sm:gap-2">
+            <span className="text-[10px] sm:text-xs font-black text-blue-800 truncate max-w-[40px] sm:max-w-none">{status}</span>
 
-            <button
-                onClick={loadFromGithub}
-                className="p-2 bg-gray-100 text-gray-700 rounded-full hover:bg-gray-200 border border-gray-300 flex items-center justify-center h-10 w-10 min-w-[40px]"
-                title="불러오기"
-            >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-            </button>
-
-            <button
-                onClick={saveToGithub}
-                className="p-2 bg-blue-100 text-blue-700 rounded-full hover:bg-blue-200 border border-blue-300 flex items-center justify-center h-10 w-10 min-w-[40px]"
-                title="저장하기"
-            >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
-            </button>
-
-            <button
-                onClick={downloadCSV}
-                className="p-2 bg-green-100 text-green-700 rounded-full hover:bg-green-200 border border-green-300 flex items-center justify-center h-10 w-10 min-w-[40px]"
-                title="엑셀(CSV) 저장"
-            >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-            </button>
-
-            <button
-                onClick={() => setShowSettings(!showSettings)}
-                className="p-2 text-gray-500 hover:text-gray-700 rounded-full hover:bg-gray-100 h-10 w-10 flex items-center justify-center min-w-[40px]"
-                title="GitHub 설정"
-            >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
-            </button>
+            <div className="flex gap-1">
+                <button onClick={loadFromGithub} className="bg-gray-100 p-2 sm:px-3 rounded-md border border-gray-300 text-xs font-bold hover:bg-gray-200" title="불러오기">⬇(Load)</button>
+                <button onClick={saveToGithub} className="bg-blue-600 p-2 sm:px-3 rounded-md text-white text-xs font-bold hover:bg-blue-700" title="저장하기">⬆(Save)</button>
+                <button onClick={downloadCSV} className="bg-green-600 p-2 sm:px-3 rounded-md text-white text-xs font-bold hover:bg-green-700" title="CSV">💾(CSV)</button>
+                <button
+                    onClick={() => setShowSettings(true)}
+                    className="bg-gray-800 text-white p-2 rounded-md hover:bg-black"
+                    title="GitHub 설정"
+                >
+                    ⚙
+                </button>
+            </div>
 
             {showSettings && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100] p-4">
-                    <div className="bg-white rounded-lg shadow-xl w-full max-w-sm overflow-hidden">
-                        <div className="bg-gray-50 px-4 py-3 border-b flex justify-between items-center">
-                            <h3 className="font-bold text-gray-700">GitHub 연동 설정</h3>
-                            <button onClick={() => setShowSettings(false)} className="text-gray-400 hover:text-gray-600">
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                            </button>
+                <div
+                    style={{
+                        position: 'fixed',
+                        top: 0, left: 0, right: 0, bottom: 0,
+                        backgroundColor: 'rgba(0,0,0,0.7)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        zIndex: 9999,
+                        padding: '16px'
+                    }}
+                    onClick={() => setShowSettings(false)}
+                >
+                    <div
+                        style={{
+                            backgroundColor: 'white',
+                            padding: '24px',
+                            borderRadius: '12px',
+                            width: '100%',
+                            maxWidth: '360px',
+                            boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)'
+                        }}
+                        onClick={e => e.stopPropagation()}
+                    >
+                        <div className="flex justify-between items-center mb-6">
+                            <h3 className="text-lg font-black text-gray-900">GitHub 연동 설정</h3>
+                            <button onClick={() => setShowSettings(false)} className="text-gray-400 text-2xl">&times;</button>
                         </div>
 
-                        <div className="p-4">
-                            <div className="mb-4">
-                                <label className="block text-sm font-bold text-gray-700 mb-1">Personal Access Token</label>
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-xs font-black text-gray-700 mb-1 uppercase tracking-wider">GitHub Token (Classic)</label>
                                 <input
                                     type="password"
                                     value={token}
                                     onChange={(e) => setToken(e.target.value)}
-                                    className="w-full px-3 py-2 border rounded-md text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 outline-none text-sm"
                                     placeholder="ghp_..."
                                 />
-                                <p className="text-xs text-gray-500 mt-1">GitHub Settings &gt; Developer settings &gt; Tokens (Classic)</p>
                             </div>
-                            <div className="mb-6">
-                                <label className="block text-sm font-bold text-gray-700 mb-1">Repository (Owner/Repo)</label>
+                            <div>
+                                <label className="block text-xs font-black text-gray-700 mb-1 uppercase tracking-wider">Repository (Owner/Repo)</label>
                                 <input
                                     type="text"
                                     value={repo}
                                     onChange={(e) => setRepo(e.target.value)}
-                                    className="w-full px-3 py-2 border rounded-md text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                                    placeholder="username/repository"
+                                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 outline-none text-sm font-mono"
+                                    placeholder="username/repo"
                                 />
                             </div>
-                            <div className="flex justify-end gap-2">
+
+                            <div className="pt-4 flex gap-2">
                                 <button
                                     onClick={() => setShowSettings(false)}
-                                    className="px-4 py-2 text-gray-500 hover:bg-gray-100 rounded-lg text-sm font-medium transition-colors"
+                                    className="flex-1 px-4 py-3 bg-gray-100 text-gray-700 rounded-lg font-bold hover:bg-gray-200 transition-colors"
                                 >
                                     취소
                                 </button>
                                 <button
                                     onClick={saveSettings}
-                                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-bold transition-colors shadow-sm"
+                                    className="flex-2 px-4 py-3 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 transition-colors shadow-lg"
                                 >
                                     저장하기
                                 </button>

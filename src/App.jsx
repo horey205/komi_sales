@@ -1,105 +1,186 @@
 import React, { useState, useEffect } from 'react';
+import { encrypt, decrypt, isEncrypted } from './utils/crypto';
 import Wizard from './components/Wizard';
 import ConsultationForm from './components/ConsultationForm';
 import EstimateForm from './components/EstimateForm';
 import GithubSync from './components/GithubSync';
 import Login from './components/Login';
-
-// Configuration
-const GITHUB_TOKEN = ''; // Token should be entered via UI settings for security
-const GITHUB_REPO = 'horey205/komi_sales';
+import DeliveryInspectionForm from './components/DeliveryInspectionForm';
+import PaymentForm from './components/PaymentForm';
+import SalesList from './components/SalesList';
 
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [encryptionKey, setEncryptionKey] = useState(null);
+  const [view, setView] = useState('list'); // 'list' or 'edit'
+  const [records, setRecords] = useState([]);
+  const [currentId, setCurrentId] = useState(null);
+  const [currentStep, setCurrentStep] = useState(0);
 
-  // Check login status on mount
+  // Check login status and handle routing on mount
   useEffect(() => {
     const loggedIn = localStorage.getItem('isLoggedIn') === 'true';
-    if (loggedIn) {
+    const savedKey = sessionStorage.getItem('encryptionKey');
+    if (loggedIn && savedKey) {
       setIsLoggedIn(true);
-      // Auto-configure GitHub settings if logged in
-      if (!localStorage.getItem('github_token')) {
-        localStorage.setItem('github_token', GITHUB_TOKEN);
-      }
-      if (!localStorage.getItem('github_repo')) {
-        localStorage.setItem('github_repo', GITHUB_REPO);
-      }
+      setEncryptionKey(savedKey);
+    } else if (loggedIn && !savedKey) {
+      // If logged in but key is missing (e.g. refresh), force relogin to get the key
+      setIsLoggedIn(false);
+      localStorage.removeItem('isLoggedIn');
     }
+
+    // Handle initial routing or refresh
+    const handleHash = () => {
+      const hash = window.location.hash;
+      if (!hash || hash === '#list') {
+        setView('list');
+        setCurrentId(null);
+      } else if (hash.startsWith('#edit/')) {
+        const id = parseInt(hash.split('/')[1]);
+        setCurrentId(id);
+        setView('edit');
+      }
+    };
+
+    window.addEventListener('popstate', handleHash);
+    handleHash();
+
+    return () => window.removeEventListener('popstate', handleHash);
   }, []);
-
-  const handleLogin = () => {
-    setIsLoggedIn(true);
-    localStorage.setItem('isLoggedIn', 'true');
-    // Save token to localStorage for GithubSync to use
-    localStorage.setItem('github_token', GITHUB_TOKEN);
-    localStorage.setItem('github_repo', GITHUB_REPO);
-
-    // Optional: Auto reload window to ensure GithubSync picks up the token freshly if needed, 
-    // but React state update should be enough if GithubSync reads from localStorage on mount.
-    // We will just let it render.
-  };
-
-  const handleLogout = () => {
-    setIsLoggedIn(false);
-    localStorage.removeItem('isLoggedIn');
-    // Optional: Clear token? Maybe keep it for convenience, or clear for security.
-    // Let's clear it to be safe 'logout'.
-    localStorage.removeItem('github_token');
-  };
-
-  const steps = [
-    '상담',
-    '견적1차',
-    '견적2차',
-    '견적3차',
-    '데모',
-    '계약',
-    '납품',
-    '검수',
-    '결제',
-    '완료',
-  ];
-
-  const [currentStep, setCurrentStep] = useState(0);
-  const [formData, setFormData] = useState({
-    consultation: {},
-    estimate1: { items: [], total: 0, currency: 'KRW' },
-    estimate2: { items: [], total: 0, currency: 'KRW' },
-    estimate3: { items: [], total: 0, currency: 'KRW' },
-  });
 
   // Load from local storage on mount
   useEffect(() => {
-    const savedData = localStorage.getItem('salesData');
-    if (savedData) {
-      setFormData(JSON.parse(savedData));
+    const savedRecords = localStorage.getItem('salesRecords');
+    if (savedRecords) {
+      if (isEncrypted(savedRecords)) {
+        const key = sessionStorage.getItem('encryptionKey');
+        if (key) {
+          const decrypted = decrypt(savedRecords, key);
+          if (decrypted) setRecords(decrypted);
+        }
+      } else {
+        // Migration: unencrypted data exists
+        setRecords(JSON.parse(savedRecords));
+      }
     }
   }, []);
 
   // Save to local storage on change
   useEffect(() => {
-    localStorage.setItem('salesData', JSON.stringify(formData));
-  }, [formData]);
+    if (records.length > 0) {
+      const dataString = JSON.stringify(records);
+      const finalData = encryptionKey ? encrypt(dataString, encryptionKey) : dataString;
+      localStorage.setItem('salesRecords', finalData);
+    }
+  }, [records, encryptionKey]);
+
+  const handleLogin = (password) => {
+    setIsLoggedIn(true);
+    setEncryptionKey(password);
+    localStorage.setItem('isLoggedIn', 'true');
+    sessionStorage.setItem('encryptionKey', password);
+  };
+
+  const handleLogout = () => {
+    if (window.confirm('로그아웃 하시겠습니까?')) {
+      setIsLoggedIn(false);
+      setEncryptionKey(null);
+      localStorage.removeItem('isLoggedIn');
+      sessionStorage.removeItem('encryptionKey');
+      window.location.hash = '#list';
+    }
+  };
+
+  const steps = [
+    '상담', '견적1차', '견적2차', '견적3차', '데모', '계약', '납품', '검수', '결제', '완료',
+  ];
+
+  const emptyFormData = {
+    consultation: {},
+    estimate1: { items: [], total: 0, currency: 'KRW' },
+    estimate2: { items: [], total: 0, currency: 'KRW' },
+    estimate3: { items: [], total: 0, currency: 'KRW' },
+    demo: { items: [], total: 0, currency: 'KRW' },
+    contract: { items: [], total: 0, currency: 'KRW' },
+    delivery: { rows: [] },
+    inspection: { rows: [] },
+    payment: { rows: [] },
+  };
+
+  const currentRecordRaw = records.find(r => r.id === currentId);
+  const currentRecord = currentRecordRaw ? {
+    ...emptyFormData,
+    ...currentRecordRaw,
+    // Deep merge essential sections to prevent undefined errors
+    consultation: currentRecordRaw.consultation || {},
+    estimate1: currentRecordRaw.estimate1 || { items: [], total: 0, currency: 'KRW' },
+    estimate2: currentRecordRaw.estimate2 || { items: [], total: 0, currency: 'KRW' },
+    estimate3: currentRecordRaw.estimate3 || { items: [], total: 0, currency: 'KRW' },
+    demo: currentRecordRaw.demo || { items: [], total: 0, currency: 'KRW' },
+    contract: currentRecordRaw.contract || { items: [], total: 0, currency: 'KRW' },
+    delivery: currentRecordRaw.delivery || { rows: [] },
+    inspection: currentRecordRaw.inspection || { rows: [] },
+    payment: currentRecordRaw.payment || { rows: [] },
+  } : { ...emptyFormData, id: null, currentStep: 0 };
+
+  const handleCreate = () => {
+    const newId = Date.now();
+    const newRecord = { ...emptyFormData, id: newId, currentStep: 0, updatedAt: new Date().toISOString() };
+    setRecords([newRecord, ...records]);
+    setCurrentId(newId);
+    setCurrentStep(0);
+    window.location.hash = `#edit/${newId}`;
+    setView('edit');
+  };
+
+  const handleSelect = (id) => {
+    const record = records.find(r => r.id === id);
+    if (record) {
+      setCurrentId(id);
+      setCurrentStep(record.currentStep || 0);
+      window.location.hash = `#edit/${id}`;
+      setView('edit');
+    }
+  };
+
+  const handleGoToList = () => {
+    window.location.hash = '#list';
+    setView('list');
+    setCurrentId(null);
+  }
+
+  const handleDelete = (id) => {
+    setRecords(records.filter(r => r.id !== id));
+  };
+
+  const updateCurrentRecord = (section, data) => {
+    setRecords(prev => prev.map(r => {
+      if (r.id === currentId) {
+        return { ...r, [section]: data, updatedAt: new Date().toISOString() };
+      }
+      return r;
+    }));
+  };
 
   const handleNext = () => {
     if (currentStep < steps.length - 1) {
-      setCurrentStep(currentStep + 1);
+      const nextStep = currentStep + 1;
+      setCurrentStep(nextStep);
+      // Sync step to record
+      setRecords(prev => prev.map(r => r.id === currentId ? { ...r, currentStep: nextStep, updatedAt: new Date().toISOString() } : r));
       window.scrollTo(0, 0);
     }
   };
 
   const handlePrev = () => {
     if (currentStep > 0) {
-      setCurrentStep(currentStep - 1);
+      const prevStep = currentStep - 1;
+      setCurrentStep(prevStep);
+      // Sync step to record
+      setRecords(prev => prev.map(r => r.id === currentId ? { ...r, currentStep: prevStep, updatedAt: new Date().toISOString() } : r));
       window.scrollTo(0, 0);
     }
-  };
-
-  const updateFormData = (section, data) => {
-    setFormData((prev) => ({
-      ...prev,
-      [section]: data,
-    }));
   };
 
   if (!isLoggedIn) {
@@ -107,49 +188,23 @@ function App() {
   }
 
   const renderStepContent = () => {
+    const data = currentRecord;
     switch (currentStep) {
-      case 0:
-        return (
-          <ConsultationForm
-            data={formData.consultation}
-            onChange={(data) => updateFormData('consultation', data)}
-          />
-        );
-      case 1:
-        return (
-          <EstimateForm
-            title="견적 1차 입력내용"
-            data={formData.estimate1}
-            onChange={(data) => updateFormData('estimate1', data)}
-          />
-        );
-      case 2:
-        return (
-          <EstimateForm
-            title="견적 2차 입력내용"
-            data={formData.estimate2}
-            onChange={(data) => updateFormData('estimate2', data)}
-          />
-        );
-      case 3:
-        return (
-          <EstimateForm
-            title="견적 3차 입력내용"
-            data={formData.estimate3}
-            onChange={(data) => updateFormData('estimate3', data)}
-          />
-        );
+      case 0: return <ConsultationForm data={data.consultation} onChange={(d) => updateCurrentRecord('consultation', d)} />;
+      case 1: return <EstimateForm title="견적 1차 입력내용" data={data.estimate1} onChange={(d) => updateCurrentRecord('estimate1', d)} />;
+      case 2: return <EstimateForm title="견적 2차 입력내용" data={data.estimate2} onChange={(d) => updateCurrentRecord('estimate2', d)} />;
+      case 3: return <EstimateForm title="견적 3차 입력내용" data={data.estimate3} onChange={(d) => updateCurrentRecord('estimate3', d)} />;
+      case 4: return <EstimateForm title="데모 내용 입력" data={data.demo} onChange={(d) => updateCurrentRecord('demo', d)} />;
+      case 5: return <EstimateForm title="계약 내용 입력" data={data.contract} onChange={(d) => updateCurrentRecord('contract', d)} />;
+      case 6: return <DeliveryInspectionForm data={data.delivery} onChange={(d) => updateCurrentRecord('delivery', d)} />;
+      case 7: return <DeliveryInspectionForm data={data.inspection} onChange={(d) => updateCurrentRecord('inspection', d)} />;
+      case 8: return <PaymentForm data={data.payment} onChange={(d) => updateCurrentRecord('payment', d)} />;
       default:
         return (
           <div className="bg-white shadow-md rounded-lg p-10 text-center border border-gray-200 min-h-[400px] flex flex-col justify-center items-center">
-            <h2 className="text-2xl font-bold text-gray-800 mb-4">{steps[currentStep]} 단계</h2>
-            <p className="text-gray-600 mb-8">
-              이 단계의 상세 입력 폼은 아직 구성되지 않았습니다.<br />
-              필요한 경우 추가 개발이 가능합니다.
-            </p>
-            <div className="p-4 bg-gray-50 rounded border border-gray-200 w-full max-w-md">
-              <p className="text-sm text-gray-500">현재까지 입력된 데이터는 자동으로 저장되고 있습니다.</p>
-            </div>
+            <h2 className="text-2xl font-bold text-gray-800 mb-4">{steps[currentStep]} 단계 완료</h2>
+            <p className="text-gray-600 mb-8">영업 프로세스가 모두 완료되었습니다.</p>
+            <button onClick={() => setView('list')} className="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold">목록으로 이동</button>
           </div>
         );
     }
@@ -157,68 +212,88 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gray-50 font-sans text-gray-900">
-      {/* Header */}
-      <header className="bg-white shadow-sm sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 py-3 sm:px-6 lg:px-8 flex flex-row flex-wrap justify-between items-center gap-2">
-          <div className="flex items-center justify-center sm:justify-start w-full sm:w-auto text-center sm:text-left relative">
-            <h1 className="text-lg sm:text-2xl font-bold text-blue-800 tracking-tight">영업 상담 관리</h1>
-            {/* Mobile Date (optional, or hidden) */}
-            <div className="text-xs text-gray-500 absolute right-0 top-1/2 -translate-y-1/2 sm:hidden hidden">
-              {new Date().toLocaleDateString().slice(5)}
-            </div>
+      <header className="bg-white shadow-sm sticky top-0 z-50 border-b border-gray-100">
+        <div className="max-w-7xl mx-auto px-4 py-2 flex items-center justify-between gap-1 overflow-visible">
+          <div className="flex items-center gap-1 sm:gap-2 min-w-0">
+            <h1
+              className="text-sm sm:text-xl font-black text-blue-800 cursor-pointer truncate"
+              onClick={handleGoToList}
+            >
+              영업DB
+            </h1>
+            {view === 'edit' && (
+              <button
+                onClick={handleGoToList}
+                className="text-[10px] sm:text-xs bg-gray-100 hover:bg-gray-200 px-1.5 py-1 rounded-md text-gray-600 font-bold transition-colors shrink-0"
+              >
+                ← 목록
+              </button>
+            )}
           </div>
-          <GithubSync formData={formData} setFormData={setFormData} />
+          <div className="flex-shrink-0 scale-90 sm:scale-100 origin-right min-w-0 flex items-center gap-2">
+            <GithubSync records={records} setRecords={setRecords} encryptionKey={encryptionKey} />
+            <button
+              onClick={handleLogout}
+              className="bg-gray-100 px-2 py-1.5 rounded-md hover:bg-red-50 hover:text-red-600 transition-colors text-[10px] sm:text-xs font-bold shrink-0"
+            >
+              로그아웃
+            </button>
+          </div>
         </div>
       </header>
 
-      {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
+        {view === 'list' ? (
+          <SalesList
+            records={records}
+            onSelect={handleSelect}
+            onDelete={handleDelete}
+            onCreate={handleCreate}
+          />
+        ) : (
+          <>
+            <div className="mb-8">
+              <div className="flex justify-between items-center mb-4 max-w-4xl mx-auto">
+                <h2 className="text-lg font-bold text-gray-700">
+                  작성 중: <span className="text-blue-600">{currentRecord.consultation?.clientName || '신규 상담'}</span>
+                </h2>
+                <div className="text-sm text-gray-400">최종 수정: {currentRecord.updatedAt ? new Date(currentRecord.updatedAt).toLocaleTimeString() : '-'}</div>
+              </div>
+              <Wizard
+                steps={steps}
+                currentStep={currentStep}
+                onStepClick={(idx) => {
+                  setCurrentStep(idx);
+                  setRecords(prev => prev.map(r => r.id === currentId ? { ...r, currentStep: idx, updatedAt: new Date().toISOString() } : r));
+                  window.scrollTo(0, 0);
+                }}
+              />
+            </div>
 
-        {/* Wizard */}
-        <div className="mb-8">
-          <Wizard steps={steps} currentStep={currentStep} />
-        </div>
+            <div className="flex justify-center mb-10" key={currentStep}>
+              {renderStepContent()}
+            </div>
 
-        {/* Form Area */}
-        <div className="flex justify-center mb-10">
-          {renderStepContent()}
-        </div>
-
-        {/* Navigation Buttons */}
-        <div className="flex justify-between max-w-4xl mx-auto px-4">
-          <button
-            onClick={handlePrev}
-            disabled={currentStep === 0}
-            className={`px-6 py-3 rounded-lg font-medium text-white transition-all shadow-md
-              ${currentStep === 0
-                ? 'bg-gray-300 cursor-not-allowed shadow-none'
-                : 'bg-gray-600 hover:bg-gray-700 hover:shadow-lg transform hover:-translate-y-0.5'
-              }`}
-          >
-            이전 단계
-          </button>
-
-          <button
-            onClick={handleNext}
-            disabled={currentStep === steps.length - 1}
-            className={`px-8 py-3 rounded-lg font-medium text-white transition-all shadow-md flex items-center
-              ${currentStep === steps.length - 1
-                ? 'bg-green-600 hover:bg-green-700'
-                : 'bg-blue-600 hover:bg-blue-700 hover:shadow-lg transform hover:-translate-y-0.5'
-              }`}
-          >
-            {currentStep === steps.length - 1 ? '완료하기' : '다음 단계'}
-            {currentStep < steps.length - 1 && (
-              <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
-              </svg>
-            )}
-          </button>
-        </div>
-
+            <div className="flex justify-between max-w-4xl mx-auto px-4 gap-4">
+              <button
+                onClick={handlePrev}
+                disabled={currentStep === 0}
+                className={`flex-1 sm:flex-none px-4 sm:px-8 py-3 rounded-lg font-bold text-white transition-all shadow-md ${currentStep === 0 ? 'bg-gray-300 cursor-not-allowed' : 'bg-gray-600 hover:bg-gray-700'}`}
+              >
+                이전 단계
+              </button>
+              <button
+                onClick={handleNext}
+                disabled={currentStep === steps.length - 1}
+                className={`flex-1 sm:flex-none px-6 sm:px-10 py-3 rounded-lg font-bold text-white transition-all shadow-md flex items-center justify-center ${currentStep === steps.length - 1 ? 'bg-green-600' : 'bg-blue-600 hover:bg-blue-700'}`}
+              >
+                {currentStep === steps.length - 1 ? '최종 완료' : '다음 단계 →'}
+              </button>
+            </div>
+          </>
+        )}
       </main>
 
-      {/* Footer */}
       <footer className="bg-gray-800 text-gray-400 py-6 mt-12">
         <div className="max-w-7xl mx-auto px-4 text-center text-sm">
           &copy; 2026 Sales Management System. All rights reserved.
