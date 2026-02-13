@@ -163,6 +163,21 @@ function App() {
     }));
   };
 
+  const handleCopyPrevious = () => {
+    const keys = ['consultation', 'estimate1', 'estimate2', 'estimate3', 'demo', 'contract'];
+    if (currentStep > 1 && currentStep <= 5) {
+      const currentKey = keys[currentStep];
+      const prevKey = keys[currentStep - 1];
+      const prevData = currentRecord[prevKey];
+
+      if (prevData && prevData.items) {
+        if (window.confirm(`${steps[currentStep - 1]}의 내용을 복사하시겠습니까?`)) {
+          updateCurrentRecord(currentKey, JSON.parse(JSON.stringify(prevData)));
+        }
+      }
+    }
+  };
+
   const handleNext = () => {
     if (currentStep < steps.length - 1) {
       const nextStep = currentStep + 1;
@@ -192,10 +207,10 @@ function App() {
     switch (currentStep) {
       case 0: return <ConsultationForm data={data.consultation} onChange={(d) => updateCurrentRecord('consultation', d)} />;
       case 1: return <EstimateForm title="견적 1차 입력내용" data={data.estimate1} onChange={(d) => updateCurrentRecord('estimate1', d)} />;
-      case 2: return <EstimateForm title="견적 2차 입력내용" data={data.estimate2} onChange={(d) => updateCurrentRecord('estimate2', d)} />;
-      case 3: return <EstimateForm title="견적 3차 입력내용" data={data.estimate3} onChange={(d) => updateCurrentRecord('estimate3', d)} />;
-      case 4: return <EstimateForm title="데모 내용 입력" data={data.demo} onChange={(d) => updateCurrentRecord('demo', d)} />;
-      case 5: return <EstimateForm title="계약 내용 입력" data={data.contract} onChange={(d) => updateCurrentRecord('contract', d)} />;
+      case 2: return <EstimateForm title="견적 2차 입력내용" data={data.estimate2} onChange={(d) => updateCurrentRecord('estimate2', d)} onCopyPrevious={handleCopyPrevious} />;
+      case 3: return <EstimateForm title="견적 3차 입력내용" data={data.estimate3} onChange={(d) => updateCurrentRecord('estimate3', d)} onCopyPrevious={handleCopyPrevious} />;
+      case 4: return <EstimateForm title="데모 내용 입력" data={data.demo} onChange={(d) => updateCurrentRecord('demo', d)} onCopyPrevious={handleCopyPrevious} />;
+      case 5: return <EstimateForm title="계약 내용 입력" data={data.contract} onChange={(d) => updateCurrentRecord('contract', d)} onCopyPrevious={handleCopyPrevious} />;
       case 6: return <DeliveryInspectionForm data={data.delivery} onChange={(d) => updateCurrentRecord('delivery', d)} />;
       case 7: return <DeliveryInspectionForm data={data.inspection} onChange={(d) => updateCurrentRecord('inspection', d)} />;
       case 8: return <PaymentForm data={data.payment} onChange={(d) => updateCurrentRecord('payment', d)} />;

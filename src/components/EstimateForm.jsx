@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 
-const EstimateForm = ({ title, data, onChange }) => {
+const EstimateForm = ({ title, data, onChange, onCopyPrevious }) => {
     // Default structure for a row if not present
     const defaultItems = [
         { name: '카메라', model: '', spec: '', price: 0 },
@@ -41,8 +41,19 @@ const EstimateForm = ({ title, data, onChange }) => {
 
     return (
         <div className="bg-white shadow-md rounded-lg p-6 w-full max-w-4xl mx-auto border border-gray-200">
-            <div className="flex justify-between items-center mb-4 border-b pb-2">
-                <h2 className="text-xl font-bold text-gray-800">{title}</h2>
+            <div className="flex justify-between items-center mb-4 border-b pb-2 gap-2 flex-wrap">
+                <div className="flex items-center gap-3">
+                    <h2 className="text-xl font-bold text-gray-800">{title}</h2>
+                    {onCopyPrevious && (
+                        <button
+                            onClick={onCopyPrevious}
+                            className="bg-blue-50 text-blue-600 px-3 py-1 rounded-md text-xs font-bold border border-blue-200 hover:bg-blue-100 transition-colors flex items-center gap-1"
+                            title="이전 단계의 내용을 그대로 가져옵니다"
+                        >
+                            <span>📋</span> 이전 내용 복사
+                        </button>
+                    )}
+                </div>
                 <div className="flex bg-gray-100 rounded-lg p-1">
                     <button
                         onClick={() => handleCurrencyChange('KRW')}
