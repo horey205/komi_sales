@@ -2,8 +2,51 @@ import React, { useState, useEffect } from 'react';
 import Wizard from './components/Wizard';
 import ConsultationForm from './components/ConsultationForm';
 import EstimateForm from './components/EstimateForm';
+import GithubSync from './components/GithubSync';
+import Login from './components/Login';
+
+// Configuration
+const GITHUB_TOKEN = ''; // Token should be entered via UI settings for security
+const GITHUB_REPO = 'horey205/komi_sales';
 
 function App() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  // Check login status on mount
+  useEffect(() => {
+    const loggedIn = localStorage.getItem('isLoggedIn') === 'true';
+    if (loggedIn) {
+      setIsLoggedIn(true);
+      // Auto-configure GitHub settings if logged in
+      if (!localStorage.getItem('github_token')) {
+        localStorage.setItem('github_token', GITHUB_TOKEN);
+      }
+      if (!localStorage.getItem('github_repo')) {
+        localStorage.setItem('github_repo', GITHUB_REPO);
+      }
+    }
+  }, []);
+
+  const handleLogin = () => {
+    setIsLoggedIn(true);
+    localStorage.setItem('isLoggedIn', 'true');
+    // Save token to localStorage for GithubSync to use
+    localStorage.setItem('github_token', GITHUB_TOKEN);
+    localStorage.setItem('github_repo', GITHUB_REPO);
+
+    // Optional: Auto reload window to ensure GithubSync picks up the token freshly if needed, 
+    // but React state update should be enough if GithubSync reads from localStorage on mount.
+    // We will just let it render.
+  };
+
+  const handleLogout = () => {
+    setIsLoggedIn(false);
+    localStorage.removeItem('isLoggedIn');
+    // Optional: Clear token? Maybe keep it for convenience, or clear for security.
+    // Let's clear it to be safe 'logout'.
+    localStorage.removeItem('github_token');
+  };
+
   const steps = [
     '상담',
     '견적1차',
@@ -59,6 +102,10 @@ function App() {
     }));
   };
 
+  if (!isLoggedIn) {
+    return <Login onLogin={handleLogin} />;
+  }
+
   const renderStepContent = () => {
     switch (currentStep) {
       case 0:
@@ -112,11 +159,15 @@ function App() {
     <div className="min-h-screen bg-gray-50 font-sans text-gray-900">
       {/* Header */}
       <header className="bg-white shadow-sm sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8 flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-blue-800 tracking-tight">영업 상담 관리 시스템</h1>
-          <div className="text-sm text-gray-500">
-            {new Date().toLocaleDateString()}
+        <div className="max-w-7xl mx-auto px-4 py-3 sm:px-6 lg:px-8 flex flex-row flex-wrap justify-between items-center gap-2">
+          <div className="flex items-center justify-center sm:justify-start w-full sm:w-auto text-center sm:text-left relative">
+            <h1 className="text-lg sm:text-2xl font-bold text-blue-800 tracking-tight">영업 상담 관리</h1>
+            {/* Mobile Date (optional, or hidden) */}
+            <div className="text-xs text-gray-500 absolute right-0 top-1/2 -translate-y-1/2 sm:hidden hidden">
+              {new Date().toLocaleDateString().slice(5)}
+            </div>
           </div>
+          <GithubSync formData={formData} setFormData={setFormData} />
         </div>
       </header>
 

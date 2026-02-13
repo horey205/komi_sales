@@ -2,8 +2,8 @@ import React from 'react';
 
 const Wizard = ({ steps, currentStep }) => {
     return (
-        <div className="w-full py-6">
-            <div className="flex items-center justify-between w-full px-2">
+        <div className="w-full py-6 overflow-x-auto">
+            <div className="flex items-center justify-between w-full px-2 min-w-[600px]">
                 {steps.map((step, index) => (
                     <div key={index} className="flex flex-col items-center flex-1 relative">
                         <div
