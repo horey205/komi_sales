@@ -1,0 +1,18 @@
+{
+    "consultation": {},
+    "estimate1": {
+        "items": [],
+        "total": 0,
+        "currency": "KRW"
+    },
+    "estimate2": {
+        "items": [],
+        "total": 0,
+        "currency": "KRW"
+    },
+    "estimate3": {
+        "items": [],
+        "total": 0,
+        "currency": "KRW"
+    }
+}
