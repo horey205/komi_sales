@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { encrypt, decrypt, isEncrypted } from '../utils/crypto';
 
-const GithubSync = ({ records, setRecords, encryptionKey }) => {
+const GithubSync = ({ records, setRecords, encryptionKey, userRole }) => {
     // Helper to get decrypted setting
     const getDecryptedSetting = (key) => {
         const val = localStorage.getItem(key) || '';
@@ -46,9 +46,10 @@ const GithubSync = ({ records, setRecords, encryptionKey }) => {
             const [owner, repoName] = repo.split('/');
             const url = `https://api.github.com/repos/${owner}/${repoName}/contents/db_v1_secure.dat`;
             console.log('Fetching from:', url);
+            console.log('Token prefix:', token ? token.substring(0, 4) : 'none');
             const response = await fetch(url, {
                 headers: {
-                    'Authorization': `token ${token}`,
+                    'Authorization': `Bearer ${token}`,
                     'Accept': 'application/vnd.github.v3+json',
                 },
             });
@@ -77,6 +78,7 @@ const GithubSync = ({ records, setRecords, encryptionKey }) => {
 
             setRecords(json);
             setStatus('불러오기 완료!');
+            alert('데이터를 성공적으로 불러왔습니다.');
             setTimeout(() => setStatus(''), 2000);
         } catch (error) {
             console.error(error);
@@ -85,6 +87,10 @@ const GithubSync = ({ records, setRecords, encryptionKey }) => {
     };
 
     const saveToGithub = async () => {
+        if (userRole === 'viewer') {
+            setStatus('권한이 없습니다.');
+            return;
+        }
         if (!token) {
             setShowSettings(true);
             setStatus('먼저 설정해주세요.');
@@ -98,7 +104,7 @@ const GithubSync = ({ records, setRecords, encryptionKey }) => {
             const url = `https://api.github.com/repos/${owner}/${repoName}/contents/db_v1_secure.dat`;
             const getResponse = await fetch(url, {
                 headers: {
-                    'Authorization': `token ${token}`,
+                    'Authorization': `Bearer ${token}`,
                     'Accept': 'application/vnd.github.v3+json',
                 },
             });
@@ -119,7 +125,7 @@ const GithubSync = ({ records, setRecords, encryptionKey }) => {
             const updateResponse = await fetch(`https://api.github.com/repos/${owner}/${repoName}/contents/db_v1_secure.dat`, {
                 method: 'PUT',
                 headers: {
-                    'Authorization': `token ${token}`,
+                    'Authorization': `Bearer ${token}`,
                     'Accept': 'application/vnd.github.v3+json',
                     'Content-Type': 'application/json',
                 },
@@ -133,6 +139,7 @@ const GithubSync = ({ records, setRecords, encryptionKey }) => {
             if (!updateResponse.ok) throw new Error('저장 실패');
 
             setStatus('저장 완료!');
+            alert('데이터가 GitHub에 안전하게 저장되었습니다!');
             setTimeout(() => setStatus(''), 2000);
         } catch (error) {
             console.error(error);
@@ -179,7 +186,9 @@ const GithubSync = ({ records, setRecords, encryptionKey }) => {
 
             <div className="flex gap-1">
                 <button onClick={loadFromGithub} className="bg-gray-100 p-2 sm:px-3 rounded-md border border-gray-300 text-xs font-bold hover:bg-gray-200" title="불러오기">⬇(Load)</button>
-                <button onClick={saveToGithub} className="bg-blue-600 p-2 sm:px-3 rounded-md text-white text-xs font-bold hover:bg-blue-700" title="저장하기">⬆(Save)</button>
+                {userRole === 'admin' && (
+                    <button onClick={saveToGithub} className="bg-blue-600 p-2 sm:px-3 rounded-md text-white text-xs font-bold hover:bg-blue-700" title="저장하기">⬆(Save)</button>
+                )}
                 <button onClick={downloadCSV} className="bg-green-600 p-2 sm:px-3 rounded-md text-white text-xs font-bold hover:bg-green-700" title="CSV">💾(CSV)</button>
                 <button
                     onClick={() => setShowSettings(true)}
@@ -197,10 +206,11 @@ const GithubSync = ({ records, setRecords, encryptionKey }) => {
                         top: 0, left: 0, right: 0, bottom: 0,
                         backgroundColor: 'rgba(0,0,0,0.7)',
                         display: 'flex',
-                        alignItems: 'center',
+                        alignItems: 'flex-start', // Start from top to prevent being cut off by browser bars
                         justifyContent: 'center',
-                        zIndex: 9999,
-                        padding: '16px'
+                        zIndex: 99999, // Super high z-index
+                        padding: '60px 16px 16px 16px', // Extra top padding for mobile/address bars
+                        overflowY: 'auto' // Allow scrolling the background if content is too tall
                     }}
                     onClick={() => setShowSettings(false)}
                 >
@@ -211,7 +221,10 @@ const GithubSync = ({ records, setRecords, encryptionKey }) => {
                             borderRadius: '12px',
                             width: '100%',
                             maxWidth: '360px',
-                            boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)'
+                            boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)',
+                            marginBottom: '20px', // Space at bottom when scrolling
+                            position: 'relative', // Ensure context
+                            zIndex: 100000 // Ensure content is above overlay
                         }}
                         onClick={e => e.stopPropagation()}
                     >

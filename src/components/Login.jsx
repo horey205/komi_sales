@@ -7,11 +7,18 @@ const Login = ({ onLogin }) => {
 
     const handleLogin = (e) => {
         e.preventDefault();
-        // Hardcoded credentials as requested
-        if (username === 'komi' && password === 'komi3386') {
-            onLogin(password); // Successful login, pass password as key
+
+        // Check password first (since it's the encryption key)
+        if (password === 'komi3386') {
+            if (username === 'komi') {
+                onLogin(password, 'admin'); // Admin role
+            } else if (username === 'guest') {
+                onLogin(password, 'viewer'); // Viewer role
+            } else {
+                setError('등록되지 않은 아이디입니다. (komi 또는 guest)');
+            }
         } else {
-            setError('아이디 또는 비밀번호가 올바르지 않습니다.');
+            setError('비밀번호가 올바르지 않습니다.');
         }
     };
 

@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 
-const DeliveryInspectionForm = ({ data, onChange }) => {
+const DeliveryInspectionForm = ({ data, onChange, onCopyPrevious }) => {
     const categories = [
         '카메라', '렌즈', '삼각대', '조명', '컴퓨터', '액세서리1', '액세서리2', '액세서리3', '액세서리4'
     ];
@@ -34,7 +34,18 @@ const DeliveryInspectionForm = ({ data, onChange }) => {
 
     return (
         <div className="bg-white shadow-md rounded-lg p-6 w-full max-w-4xl mx-auto border border-gray-200">
-            <h2 className="text-xl font-bold text-gray-800 mb-4 border-b pb-2">납품/검수 내용 입력</h2>
+            <div className="flex justify-between items-center mb-4 border-b pb-2">
+                <h2 className="text-xl font-bold text-gray-800">납품/검수 내용 입력</h2>
+                {onCopyPrevious && (
+                    <button
+                        onClick={onCopyPrevious}
+                        className="bg-blue-50 text-blue-600 px-3 py-1 rounded-md text-xs font-bold border border-blue-200 hover:bg-blue-100 transition-colors flex items-center gap-1"
+                        title="계약 단계의 품목을 가져옵니다"
+                    >
+                        <span>📋</span> 품목 가져오기
+                    </button>
+                )}
+            </div>
             <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200 border">
                     <thead className="bg-gray-50">

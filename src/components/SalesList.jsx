@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-const SalesList = ({ records, onSelect, onDelete, onCreate }) => {
+const SalesList = ({ records, onSelect, onDelete, onCreate, userRole }) => {
     const [searchTerm, setSearchTerm] = useState('');
 
     const filteredRecords = records.filter(record => {
@@ -35,13 +35,15 @@ const SalesList = ({ records, onSelect, onDelete, onCreate }) => {
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
                     </div>
-                    <button
-                        onClick={onCreate}
-                        className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-bold shadow transition-colors flex items-center gap-1 shrink-0"
-                    >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg>
-                        신규 등록
-                    </button>
+                    {userRole === 'admin' && (
+                        <button
+                            onClick={onCreate}
+                            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-bold shadow transition-colors flex items-center gap-1 shrink-0"
+                        >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg>
+                            신규 등록
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -77,16 +79,20 @@ const SalesList = ({ records, onSelect, onDelete, onCreate }) => {
                                         {record.updatedAt ? new Date(record.updatedAt).toLocaleString() : '-'}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                        <button
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                if (window.confirm('정말 삭제하시겠습니까?')) onDelete(record.id);
-                                            }}
-                                            className="text-red-600 hover:text-red-900 bg-red-50 p-2 rounded-full hover:bg-red-100 transition-colors"
-                                            title="삭제"
-                                        >
-                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-4v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-                                        </button>
+                                        {userRole === 'admin' ? (
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    if (window.confirm('정말 삭제하시겠습니까?')) onDelete(record.id);
+                                                }}
+                                                className="text-red-600 hover:text-red-900 bg-red-50 p-2 rounded-full hover:bg-red-100 transition-colors"
+                                                title="삭제"
+                                            >
+                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-4v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                            </button>
+                                        ) : (
+                                            <span className="text-gray-300 text-xs">보기 전용</span>
+                                        )}
                                     </td>
                                 </tr>
                             ))

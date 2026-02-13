@@ -11,6 +11,7 @@ import SalesList from './components/SalesList';
 
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [userRole, setUserRole] = useState('viewer'); // 'admin' or 'viewer'
   const [encryptionKey, setEncryptionKey] = useState(null);
   const [view, setView] = useState('list'); // 'list' or 'edit'
   const [records, setRecords] = useState([]);
@@ -21,13 +22,16 @@ function App() {
   useEffect(() => {
     const loggedIn = localStorage.getItem('isLoggedIn') === 'true';
     const savedKey = sessionStorage.getItem('encryptionKey');
+    const savedRole = sessionStorage.getItem('userRole'); // Restore role
     if (loggedIn && savedKey) {
       setIsLoggedIn(true);
       setEncryptionKey(savedKey);
+      setUserRole(savedRole || 'viewer');
     } else if (loggedIn && !savedKey) {
       // If logged in but key is missing (e.g. refresh), force relogin to get the key
       setIsLoggedIn(false);
       localStorage.removeItem('isLoggedIn');
+      sessionStorage.removeItem('userRole');
     }
 
     // Handle initial routing or refresh
@@ -75,19 +79,23 @@ function App() {
     }
   }, [records, encryptionKey]);
 
-  const handleLogin = (password) => {
+  const handleLogin = (password, role = 'admin') => {
     setIsLoggedIn(true);
     setEncryptionKey(password);
+    setUserRole(role);
     localStorage.setItem('isLoggedIn', 'true');
     sessionStorage.setItem('encryptionKey', password);
+    sessionStorage.setItem('userRole', role);
   };
 
   const handleLogout = () => {
     if (window.confirm('로그아웃 하시겠습니까?')) {
       setIsLoggedIn(false);
       setEncryptionKey(null);
+      setUserRole('viewer');
       localStorage.removeItem('isLoggedIn');
       sessionStorage.removeItem('encryptionKey');
+      sessionStorage.removeItem('userRole');
       window.location.hash = '#list';
     }
   };
@@ -164,7 +172,9 @@ function App() {
   };
 
   const handleCopyPrevious = () => {
-    const keys = ['consultation', 'estimate1', 'estimate2', 'estimate3', 'demo', 'contract'];
+    const keys = ['consultation', 'estimate1', 'estimate2', 'estimate3', 'demo', 'contract', 'delivery', 'inspection']; // Added delivery/inspection keys
+
+    // Logic for Estimates/Demo/Contract (Copying items structure)
     if (currentStep > 1 && currentStep <= 5) {
       const currentKey = keys[currentStep];
       const prevKey = keys[currentStep - 1];
@@ -174,6 +184,34 @@ function App() {
         if (window.confirm(`${steps[currentStep - 1]}의 내용을 복사하시겠습니까?`)) {
           updateCurrentRecord(currentKey, JSON.parse(JSON.stringify(prevData)));
         }
+      }
+    }
+    // Logic for Delivery/Inspection (Copying items to rows structure)
+    else if (currentStep === 6 || currentStep === 7) {
+      // Find the last valid estimate/contract to copy from. Usually Contract (step 5).
+      // If contract is empty, try demo, then estimate3... but let's just grab from Contract for now as it's the preceding step.
+      const prevKey = 'contract';
+      const prevData = currentRecord[prevKey];
+
+      if (prevData && prevData.items && prevData.items.length > 0) {
+        if (window.confirm(`계약 단계의 품목을 ${steps[currentStep]} 목록으로 가져오겠습니까?`)) {
+          // Transform items { name, model, spec } to rows { category, model, spec, confirmed }
+          const newRows = prevData.items.filter(item => item.model || item.spec).map(item => ({
+            category: item.name,
+            model: item.model,
+            spec: item.spec,
+            confirmed: false
+          }));
+          // If the list is empty (no items with model/spec), maybe just copy structure? 
+          // Let's just copy valid items.
+          if (newRows.length > 0) {
+            updateCurrentRecord(keys[currentStep], { rows: newRows });
+          } else {
+            alert('복사할 품목 정보가 없습니다 (모델명/규격이 입력된 항목만 복사됩니다).');
+          }
+        }
+      } else {
+        alert('계약 단계에 입력된 품목이 없습니다.');
       }
     }
   };
@@ -203,17 +241,20 @@ function App() {
   }
 
   const renderStepContent = () => {
-    const data = currentRecord;
+    const isViewer = userRole === 'viewer';
+    // Wrap content in a container that disables pointer events if viewer
+    const Wrapper = ({ children }) => isViewer ? <div className="pointer-events-none opacity-90">{children}</div> : <>{children}</>;
+
     switch (currentStep) {
-      case 0: return <ConsultationForm data={data.consultation} onChange={(d) => updateCurrentRecord('consultation', d)} />;
-      case 1: return <EstimateForm title="견적 1차 입력내용" data={data.estimate1} onChange={(d) => updateCurrentRecord('estimate1', d)} />;
-      case 2: return <EstimateForm title="견적 2차 입력내용" data={data.estimate2} onChange={(d) => updateCurrentRecord('estimate2', d)} onCopyPrevious={handleCopyPrevious} />;
-      case 3: return <EstimateForm title="견적 3차 입력내용" data={data.estimate3} onChange={(d) => updateCurrentRecord('estimate3', d)} onCopyPrevious={handleCopyPrevious} />;
-      case 4: return <EstimateForm title="데모 내용 입력" data={data.demo} onChange={(d) => updateCurrentRecord('demo', d)} onCopyPrevious={handleCopyPrevious} />;
-      case 5: return <EstimateForm title="계약 내용 입력" data={data.contract} onChange={(d) => updateCurrentRecord('contract', d)} onCopyPrevious={handleCopyPrevious} />;
-      case 6: return <DeliveryInspectionForm data={data.delivery} onChange={(d) => updateCurrentRecord('delivery', d)} />;
-      case 7: return <DeliveryInspectionForm data={data.inspection} onChange={(d) => updateCurrentRecord('inspection', d)} />;
-      case 8: return <PaymentForm data={data.payment} onChange={(d) => updateCurrentRecord('payment', d)} />;
+      case 0: return <Wrapper><ConsultationForm data={data.consultation} onChange={(d) => updateCurrentRecord('consultation', d)} /></Wrapper>;
+      case 1: return <Wrapper><EstimateForm title="견적 1차 입력내용" data={data.estimate1} onChange={(d) => updateCurrentRecord('estimate1', d)} /></Wrapper>;
+      case 2: return <Wrapper><EstimateForm title="견적 2차 입력내용" data={data.estimate2} onChange={(d) => updateCurrentRecord('estimate2', d)} onCopyPrevious={handleCopyPrevious} /></Wrapper>;
+      case 3: return <Wrapper><EstimateForm title="견적 3차 입력내용" data={data.estimate3} onChange={(d) => updateCurrentRecord('estimate3', d)} onCopyPrevious={handleCopyPrevious} /></Wrapper>;
+      case 4: return <Wrapper><EstimateForm title="데모 내용 입력" data={data.demo} onChange={(d) => updateCurrentRecord('demo', d)} onCopyPrevious={handleCopyPrevious} /></Wrapper>;
+      case 5: return <Wrapper><EstimateForm title="계약 내용 입력" data={data.contract} onChange={(d) => updateCurrentRecord('contract', d)} onCopyPrevious={handleCopyPrevious} /></Wrapper>;
+      case 6: return <Wrapper><DeliveryInspectionForm data={data.delivery} onChange={(d) => updateCurrentRecord('delivery', d)} onCopyPrevious={handleCopyPrevious} /></Wrapper>;
+      case 7: return <Wrapper><DeliveryInspectionForm data={data.inspection} onChange={(d) => updateCurrentRecord('inspection', d)} onCopyPrevious={handleCopyPrevious} /></Wrapper>;
+      case 8: return <Wrapper><PaymentForm data={data.payment} onChange={(d) => updateCurrentRecord('payment', d)} /></Wrapper>;
       default:
         return (
           <div className="bg-white shadow-md rounded-lg p-10 text-center border border-gray-200 min-h-[400px] flex flex-col justify-center items-center">
@@ -236,6 +277,11 @@ function App() {
             >
               영업DB
             </h1>
+            {userRole === 'viewer' && (
+              <span className="bg-gray-200 text-gray-600 text-[10px] px-2 py-0.5 rounded-full font-bold self-center ml-1">
+                구경꾼
+              </span>
+            )}
             {view === 'edit' && (
               <button
                 onClick={handleGoToList}
@@ -246,7 +292,7 @@ function App() {
             )}
           </div>
           <div className="flex-shrink-0 scale-90 sm:scale-100 origin-right min-w-0 flex items-center gap-2">
-            <GithubSync records={records} setRecords={setRecords} encryptionKey={encryptionKey} />
+            <GithubSync records={records} setRecords={setRecords} encryptionKey={encryptionKey} userRole={userRole} />
             <button
               onClick={handleLogout}
               className="bg-gray-100 px-2 py-1.5 rounded-md hover:bg-red-50 hover:text-red-600 transition-colors text-[10px] sm:text-xs font-bold shrink-0"
@@ -264,6 +310,7 @@ function App() {
             onSelect={handleSelect}
             onDelete={handleDelete}
             onCreate={handleCreate}
+            userRole={userRole}
           />
         ) : (
           <>

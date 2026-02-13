@@ -3,7 +3,8 @@ import React from 'react';
 const PaymentForm = ({ data, onChange }) => {
     const handleAddRow = () => {
         const rows = [...(data.rows || [])];
-        rows.push({ invoice: '', date: '', item: '', qty: 0, price: 0, supplyPrice: 0, tax: 0, total: 0, requested: '', status: '' });
+        const today = new Date().toISOString().slice(0, 10);
+        rows.push({ invoice: '', date: today, item: '', qty: 0, price: 0, supplyPrice: 0, tax: 0, total: 0, requested: '', status: '' });
         onChange({ ...data, rows });
     };
 
