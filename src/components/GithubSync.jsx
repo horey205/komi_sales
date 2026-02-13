@@ -44,7 +44,7 @@ const GithubSync = ({ records, setRecords, encryptionKey }) => {
         setStatus('불러오는 중...');
         try {
             const [owner, repoName] = repo.split('/');
-            const response = await fetch(`https://api.github.com/repos/${owner}/${repoName}/contents/data.json`, {
+            const response = await fetch(`https://api.github.com/repos/${owner}/${repoName}/contents/db_v1_secure.dat`, {
                 headers: {
                     'Authorization': `token ${token}`,
                     'Accept': 'application/vnd.github.v3+json',
@@ -90,7 +90,7 @@ const GithubSync = ({ records, setRecords, encryptionKey }) => {
         try {
             const [owner, repoName] = repo.split('/');
 
-            const getResponse = await fetch(`https://api.github.com/repos/${owner}/${repoName}/contents/data.json`, {
+            const getResponse = await fetch(`https://api.github.com/repos/${owner}/${repoName}/contents/db_v1_secure.dat`, {
                 headers: {
                     'Authorization': `token ${token}`,
                     'Accept': 'application/vnd.github.v3+json',
@@ -107,7 +107,7 @@ const GithubSync = ({ records, setRecords, encryptionKey }) => {
             const finalContentString = encryptionKey ? encrypt(jsonString, encryptionKey) : jsonString;
             const content = btoa(unescape(encodeURIComponent(finalContentString)));
 
-            const updateResponse = await fetch(`https://api.github.com/repos/${owner}/${repoName}/contents/data.json`, {
+            const updateResponse = await fetch(`https://api.github.com/repos/${owner}/${repoName}/contents/db_v1_secure.dat`, {
                 method: 'PUT',
                 headers: {
                     'Authorization': `token ${token}`,
