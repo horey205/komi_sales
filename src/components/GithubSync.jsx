@@ -44,14 +44,19 @@ const GithubSync = ({ records, setRecords, encryptionKey }) => {
         setStatus('불러오는 중...');
         try {
             const [owner, repoName] = repo.split('/');
-            const response = await fetch(`https://api.github.com/repos/${owner}/${repoName}/contents/db_v1_secure.dat`, {
+            const url = `https://api.github.com/repos/${owner}/${repoName}/contents/db_v1_secure.dat`;
+            console.log('Fetching from:', url);
+            const response = await fetch(url, {
                 headers: {
                     'Authorization': `token ${token}`,
                     'Accept': 'application/vnd.github.v3+json',
                 },
             });
 
-            if (!response.ok) throw new Error('불러오기 실패');
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(`불러오기 실패 (${response.status}: ${errorData.message || response.statusText})`);
+            }
 
             const data = await response.json();
             let contentString = decodeURIComponent(escape(atob(data.content)));
@@ -90,14 +95,18 @@ const GithubSync = ({ records, setRecords, encryptionKey }) => {
         try {
             const [owner, repoName] = repo.split('/');
 
-            const getResponse = await fetch(`https://api.github.com/repos/${owner}/${repoName}/contents/db_v1_secure.dat`, {
+            const url = `https://api.github.com/repos/${owner}/${repoName}/contents/db_v1_secure.dat`;
+            const getResponse = await fetch(url, {
                 headers: {
                     'Authorization': `token ${token}`,
                     'Accept': 'application/vnd.github.v3+json',
                 },
             });
 
-            if (!getResponse.ok) throw new Error('파일 정보 확인 실패');
+            if (!getResponse.ok) {
+                const errorData = await getResponse.json().catch(() => ({}));
+                throw new Error(`파일 확인 실패 (${getResponse.status}: ${errorData.message || getResponse.statusText})`);
+            }
 
             const fileData = await getResponse.json();
             const sha = fileData.sha;
