@@ -1,18 +1,204 @@
-{
-    "consultation": {},
-    "estimate1": {
-        "items": [],
-        "total": 0,
-        "currency": "KRW"
-    },
-    "estimate2": {
-        "items": [],
-        "total": 0,
-        "currency": "KRW"
-    },
-    "estimate3": {
-        "items": [],
-        "total": 0,
-        "currency": "KRW"
+[
+    {
+        "id": 1707827160000,
+        "currentStep": 6,
+        "updatedAt": "2026-02-13T21:06:00.000Z",
+        "consultation": {
+            "clientName": "㈜스피드테크 (홍길동)",
+            "dept": "기술영업부",
+            "position": "팀장",
+            "manager": "홍길동",
+            "phone1": "010-1234-5678",
+            "phone2": "02-555-9988",
+            "email": "hgd@speedtech.co.kr",
+            "address": "서울특별시 강남구 테헤란로 123 스피드빌딩 5층",
+            "content": "미국 Vision Research사 Phantom 고속카메라 정기 수입 및 국내 자동차 연구소 납품 건.\n기존 고속카메라 노후화로 인한 신규 장비(v2640 모델) 도입 상담 진행.\n풀HD급에서 26,000fps 이상의 성능 필요함."
+        },
+        "estimate1": {
+            "items": [
+                {
+                    "name": "카메라",
+                    "model": "Phantom v2640",
+                    "spec": "4Mpx, 6600fps @ Max Res",
+                    "price": 85000000
+                },
+                {
+                    "name": "렌즈",
+                    "model": "Nikon AF 50mm f/1.4",
+                    "spec": "F-mount fixed lens",
+                    "price": 1200000
+                },
+                {
+                    "name": "삼각대",
+                    "model": "Manfrotto 504X",
+                    "spec": "Heavy duty video tripod",
+                    "price": 1500000
+                },
+                {
+                    "name": "조명",
+                    "model": "LED Flash 500W",
+                    "spec": "High intensity for high speed",
+                    "price": 3500000
+                }
+            ],
+            "total": 91200000,
+            "currency": "KRW"
+        },
+        "estimate2": {
+            "items": [
+                {
+                    "name": "카메라",
+                    "model": "Phantom v2640",
+                    "spec": "4Mpx (Discount applied)",
+                    "price": 82000000
+                },
+                {
+                    "name": "렌즈",
+                    "model": "Nikon AF 50mm f/1.4",
+                    "spec": "Bundle price",
+                    "price": 1000000
+                },
+                {
+                    "name": "삼각대",
+                    "model": "Manfrotto 504X",
+                    "spec": "Bundle price",
+                    "price": 1300000
+                },
+                {
+                    "name": "조명",
+                    "model": "LED Flash 500W",
+                    "spec": "Bundle price",
+                    "price": 3200000
+                }
+            ],
+            "total": 87500000,
+            "currency": "KRW"
+        },
+        "estimate3": {
+            "items": [
+                {
+                    "name": "카메라",
+                    "model": "Phantom v2640",
+                    "spec": "Final Price",
+                    "price": 80000000
+                },
+                {
+                    "name": "렌즈",
+                    "model": "Nikon AF 50mm f/1.4",
+                    "spec": "Service",
+                    "price": 0
+                },
+                {
+                    "name": "삼각대",
+                    "model": "Manfrotto 504X",
+                    "spec": "Service",
+                    "price": 0
+                },
+                {
+                    "name": "조명",
+                    "model": "LED Flash 500W",
+                    "spec": "Final Price",
+                    "price": 3000000
+                }
+            ],
+            "total": 83000000,
+            "currency": "KRW"
+        },
+        "demo": {
+            "items": [
+                {
+                    "name": "카메라",
+                    "model": "v2640 Demo Kit",
+                    "spec": "현장 테스트 완료",
+                    "price": 0
+                }
+            ],
+            "total": 0,
+            "currency": "KRW"
+        },
+        "contract": {
+            "items": [
+                {
+                    "name": "카메라",
+                    "model": "Phantom v2640 Full Set",
+                    "spec": "계약 완료 (수입 진행 중)",
+                    "price": 83000000
+                }
+            ],
+            "total": 83000000,
+            "currency": "KRW"
+        },
+        "delivery": {
+            "rows": [
+                {
+                    "category": "카메라",
+                    "model": "Phantom v2640",
+                    "spec": "S/N: 2024-HGD-01",
+                    "confirmed": true
+                },
+                {
+                    "category": "렌즈",
+                    "model": "Nikon 50mm",
+                    "spec": "Standard",
+                    "confirmed": true
+                },
+                {
+                    "category": "삼각대",
+                    "model": "Manfrotto",
+                    "spec": "Standard",
+                    "confirmed": true
+                },
+                {
+                    "category": "조명",
+                    "model": "LED 500W",
+                    "spec": "High speed only",
+                    "confirmed": true
+                }
+            ]
+        },
+        "inspection": {
+            "rows": [
+                {
+                    "category": "카메라",
+                    "model": "v2640",
+                    "spec": "해상도/프레임 테스트 완료",
+                    "confirmed": true
+                },
+                {
+                    "category": "렌즈",
+                    "model": "Nikon",
+                    "spec": "초점 확인 완료",
+                    "confirmed": true
+                }
+            ]
+        },
+        "payment": {
+            "rows": [
+                {
+                    "invoice": "INV-2024-001",
+                    "date": "2026-02-12",
+                    "item": "선금 (30%)",
+                    "qty": 1,
+                    "price": 24900000,
+                    "supplyPrice": 24900000,
+                    "tax": 2490000,
+                    "total": 27390000,
+                    "requested": "홍길동",
+                    "status": "입금완료"
+                },
+                {
+                    "invoice": "INV-2024-002",
+                    "date": "2026-02-14",
+                    "item": "잔금 (70%)",
+                    "qty": 1,
+                    "price": 58100000,
+                    "supplyPrice": 58100000,
+                    "tax": 5810000,
+                    "total": 63910000,
+                    "requested": "홍길동",
+                    "status": "청구예정"
+                }
+            ]
+        }
     }
-}
+]
