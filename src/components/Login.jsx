@@ -8,17 +8,20 @@ const Login = ({ onLogin }) => {
     const handleLogin = (e) => {
         e.preventDefault();
 
-        // Check password first (since it's the encryption key)
-        if (password === 'komi3386') {
-            if (username === 'komi') {
-                onLogin(password, 'admin'); // Admin role
-            } else if (username === 'guest') {
-                onLogin(password, 'viewer'); // Viewer role
-            } else {
-                setError('등록되지 않은 아이디입니다. (komi 또는 guest)');
-            }
-        } else {
-            setError('비밀번호가 올바르지 않습니다.');
+        // Data encryption key is always 'komi3386' (to maintain access to existing data)
+        const MASTER_KEY = 'komi3386';
+
+        // 1. Admin Login (admin / komi#3386)
+        if (username === 'admin' && password === 'komi#3386') {
+            onLogin(MASTER_KEY, 'admin');
+        }
+        // 2. Guest Login (komi / komi3386)
+        else if (username === 'komi' && password === 'komi3386') {
+            onLogin(MASTER_KEY, 'viewer');
+        }
+        // 3. Error handling
+        else {
+            setError('아이디 또는 비밀번호가 올바르지 않습니다.');
         }
     };
 
