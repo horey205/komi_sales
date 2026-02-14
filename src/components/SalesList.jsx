@@ -43,7 +43,7 @@ const SalesList = ({ records, onSelect, onDelete, onCreate, userRole }) => {
 
             return {
                 'ID': record.id,
-                '진행상태': getStepLabel(record.currentStep),
+                '진행상태': steps[record.currentStep || 0],
                 '최종수정일': record.updatedAt ? new Date(record.updatedAt).toLocaleString() : '',
 
                 // 상담 정보

@@ -1,43 +1,44 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect, useCallback, memo } from 'react';
 
 const EstimateForm = ({ title, data, onChange, onCopyPrevious }) => {
-    // Default structure for a row if not present
-    const defaultItems = [
-        { name: '카메라', model: '', spec: '', price: 0 },
-        { name: '렌즈', model: '', spec: '', price: 0 },
-        { name: '삼각대', model: '', spec: '', price: 0 },
-        { name: '조명', model: '', spec: '', price: 0 },
-        { name: '컴퓨터', model: '', spec: '', price: 0 },
-        { name: '액세서리1', model: '', spec: '', price: 0 },
-        { name: '액세서리2', model: '', spec: '', price: 0 },
-        { name: '액세서리3', model: '', spec: '', price: 0 },
-        { name: '액세서리4', model: '', spec: '', price: 0 },
-    ];
+    // 로컬 상태 도입: 입력 중에는 이 데이터만 바뀝니다.
+    const [localData, setLocalData] = useState(data);
 
-    // Initialize data if empty
     useEffect(() => {
-        if (!data.items || data.items.length === 0) {
-            onChange({ ...data, items: defaultItems, currency: 'KRW' });
-        }
+        setLocalData(data);
+    }, [data.id]); // 업체 ID가 바뀔 때만 동기화
+
+    const handleItemChange = useCallback((index, field, value) => {
+        setLocalData(prev => {
+            const newItems = [...(prev.items || [])];
+            newItems[index] = { ...newItems[index], [field]: value };
+            const total = newItems.reduce((sum, item) => sum + (Number(item.price) || 0), 0);
+            return { ...prev, items: newItems, total };
+        });
     }, []);
 
-    const handleItemChange = (index, field, value) => {
-        const newItems = [...(data.items || defaultItems)];
-        newItems[index] = { ...newItems[index], [field]: value };
+    const handleCurrencyChange = useCallback((currency) => {
+        setLocalData(prev => ({ ...prev, currency }));
+    }, []);
 
-        // Recalculate total immediately
-        const total = newItems.reduce((sum, item) => sum + (Number(item.price) || 0), 0);
+    const handleDateChange = useCallback((e) => {
+        const val = e.target.value;
+        setLocalData(prev => ({ ...prev, date: val }));
+    }, []);
 
-        onChange({ ...data, items: newItems, total });
-    };
+    // 지연 보고: 입력이 0.5초 멈추면 그때 부모에게 전달
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            if (JSON.stringify(localData) !== JSON.stringify(data)) {
+                onChange(localData);
+            }
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [localData, onChange, data]);
 
-    const handleCurrencyChange = (currency) => {
-        onChange({ ...data, currency });
-    };
-
-    const items = data.items || defaultItems;
-    const total = data.total || 0;
-    const currency = data.currency || 'KRW';
+    const items = localData.items || [];
+    const total = localData.total || 0;
+    const currency = localData.currency || 'KRW';
 
     return (
         <div className="bg-white shadow-md rounded-lg p-6 w-full max-w-4xl mx-auto border border-gray-200">
@@ -47,9 +48,9 @@ const EstimateForm = ({ title, data, onChange, onCopyPrevious }) => {
                     <input
                         type="date"
                         name="date"
-                        value={data.date || new Date().toISOString().slice(0, 10)}
-                        onChange={(e) => onChange({ ...data, date: e.target.value })}
-                        className="border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-600 font-normal"
+                        value={localData.date || new Date().toISOString().slice(0, 10)}
+                        onChange={handleDateChange}
+                        className="border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-600 font-normal text-base sm:text-sm"
                     />
                     {onCopyPrevious && (
                         <button
@@ -64,15 +65,13 @@ const EstimateForm = ({ title, data, onChange, onCopyPrevious }) => {
                 <div className="flex bg-gray-100 rounded-lg p-1">
                     <button
                         onClick={() => handleCurrencyChange('KRW')}
-                        className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${currency === 'KRW' ? 'bg-white shadow text-blue-600' : 'text-gray-500 hover:text-gray-700'
-                            }`}
+                        className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${currency === 'KRW' ? 'bg-white shadow text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
                     >
                         원화 (KRW)
                     </button>
                     <button
                         onClick={() => handleCurrencyChange('USD')}
-                        className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${currency === 'USD' ? 'bg-white shadow text-blue-600' : 'text-gray-500 hover:text-gray-700'
-                            }`}
+                        className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${currency === 'USD' ? 'bg-white shadow text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
                     >
                         달러 (USD)
                     </button>
@@ -100,17 +99,17 @@ const EstimateForm = ({ title, data, onChange, onCopyPrevious }) => {
                                         <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
                                             <input
                                                 type="text"
-                                                value={item.model}
+                                                value={item.model || ''}
                                                 onChange={(e) => handleItemChange(index, 'model', e.target.value)}
-                                                className="w-full border border-gray-300 rounded px-2 py-1 focus:outline-none focus:border-blue-500"
+                                                className="w-full border border-gray-300 rounded px-2 py-1 focus:outline-none focus:border-blue-500 text-base sm:text-sm"
                                             />
                                         </td>
                                         <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
                                             <input
                                                 type="text"
-                                                value={item.spec}
+                                                value={item.spec || ''}
                                                 onChange={(e) => handleItemChange(index, 'spec', e.target.value)}
-                                                className="w-full border border-gray-300 rounded px-2 py-1 focus:outline-none focus:border-blue-500"
+                                                className="w-full border border-gray-300 rounded px-2 py-1 focus:outline-none focus:border-blue-500 text-base sm:text-sm"
                                             />
                                         </td>
                                         <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
@@ -118,31 +117,25 @@ const EstimateForm = ({ title, data, onChange, onCopyPrevious }) => {
                                                 type="number"
                                                 value={item.price || ''}
                                                 onChange={(e) => handleItemChange(index, 'price', e.target.value)}
-                                                className="w-full border border-gray-300 rounded px-2 py-1 focus:outline-none focus:border-blue-500 text-right"
+                                                className="w-full border border-gray-300 rounded px-2 py-1 focus:outline-none focus:border-blue-500 text-right text-base sm:text-sm"
                                                 placeholder="0"
+                                                inputMode="numeric"
                                             />
                                         </td>
                                     </tr>
                                 ))}
-                                {/* Total Row */}
                                 <tr className="bg-blue-50 font-bold">
-                                    <td colSpan="3" className="px-4 py-3 text-right text-sm text-gray-800">
-                                        총 합계
-                                    </td>
-                                    <td className="px-4 py-3 text-right text-sm text-blue-600">
-                                        {currency === 'KRW' ? '₩' : '$'} {total.toLocaleString()}
-                                    </td>
+                                    <td colSpan="3" className="px-4 py-3 text-right text-sm text-gray-800">총 합계</td>
+                                    <td className="px-4 py-3 text-right text-sm text-blue-600">{currency === 'KRW' ? '₩' : '$'} {total.toLocaleString()}</td>
                                 </tr>
                             </tbody>
                         </table>
                     </div>
                 </div>
             </div>
-            <div className="mt-4 text-xs text-gray-500">
-                * 금액을 입력하면 자동으로 합계가 계산됩니다.
-            </div>
+            <div className="mt-4 text-xs text-gray-500">* 금액을 입력하면 자동으로 합계가 계산됩니다.</div>
         </div>
     );
 };
 
-export default EstimateForm;
+export default memo(EstimateForm);

@@ -1,37 +1,59 @@
-import React from 'react';
+import React, { useState, useEffect, useCallback, memo } from 'react';
 
 const PaymentForm = ({ data, onChange }) => {
-    const handleAddRow = () => {
-        const rows = [...(data.rows || [])];
-        const today = new Date().toISOString().slice(0, 10);
-        rows.push({ invoice: '', date: today, item: '', qty: 0, price: 0, supplyPrice: 0, tax: 0, total: 0, requested: '', status: '' });
-        onChange({ ...data, rows });
-    };
+    // 로컬 상태 도입
+    const [localData, setLocalData] = useState(data);
 
-    const handleRemoveRow = (index) => {
-        const rows = [...(data.rows || [])];
-        rows.splice(index, 1);
-        onChange({ ...data, rows });
-    };
+    useEffect(() => {
+        setLocalData(data);
+    }, [data.id]);
 
-    const handleChange = (index, field, value) => {
-        const rows = [...(data.rows || [])];
-        const row = { ...rows[index], [field]: value };
+    const handleAddRow = useCallback(() => {
+        setLocalData(prev => {
+            const rows = [...(prev.rows || [])];
+            const today = new Date().toISOString().slice(0, 10);
+            rows.push({ invoice: '', date: today, item: '', qty: 0, price: 0, supplyPrice: 0, tax: 0, total: 0, requested: '', status: '' });
+            return { ...prev, rows };
+        });
+    }, []);
 
-        // Auto-calculate supplyPrice, tax, total if qty or price changed
-        if (field === 'qty' || field === 'price') {
-            const qty = Number(row.qty) || 0;
-            const price = Number(row.price) || 0;
-            row.supplyPrice = qty * price;
-            row.tax = Math.floor(row.supplyPrice * 0.1);
-            row.total = row.supplyPrice + row.tax;
-        }
+    const handleRemoveRow = useCallback((index) => {
+        setLocalData(prev => {
+            const rows = [...(prev.rows || [])];
+            rows.splice(index, 1);
+            return { ...prev, rows };
+        });
+    }, []);
 
-        rows[index] = row;
-        onChange({ ...data, rows });
-    };
+    const handleChange = useCallback((index, field, value) => {
+        setLocalData(prev => {
+            const rows = [...(prev.rows || [])];
+            const row = { ...rows[index], [field]: value };
 
-    const rows = data.rows || [];
+            if (field === 'qty' || field === 'price') {
+                const qty = Number(row.qty) || 0;
+                const price = Number(row.price) || 0;
+                row.supplyPrice = qty * price;
+                row.tax = Math.floor(row.supplyPrice * 0.1);
+                row.total = row.supplyPrice + row.tax;
+            }
+
+            rows[index] = row;
+            return { ...prev, rows };
+        });
+    }, []);
+
+    // 지연 보고
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            if (JSON.stringify(localData) !== JSON.stringify(data)) {
+                onChange(localData);
+            }
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [localData, onChange, data]);
+
+    const rows = localData.rows || [];
 
     return (
         <div className="bg-white shadow-md rounded-lg p-6 w-full max-w-7xl mx-auto border border-gray-200">
@@ -65,16 +87,16 @@ const PaymentForm = ({ data, onChange }) => {
                     <tbody className="bg-white divide-y divide-gray-200">
                         {rows.map((row, idx) => (
                             <tr key={idx}>
-                                <td className="p-1 border"><input type="text" value={row.invoice} onChange={(e) => handleChange(idx, 'invoice', e.target.value)} className="w-full border p-1" /></td>
-                                <td className="p-1 border"><input type="date" value={row.date} onChange={(e) => handleChange(idx, 'date', e.target.value)} className="w-full border p-1" /></td>
-                                <td className="p-1 border"><input type="text" value={row.item} onChange={(e) => handleChange(idx, 'item', e.target.value)} className="w-full border p-1" /></td>
-                                <td className="p-1 border"><input type="number" value={row.qty} onChange={(e) => handleChange(idx, 'qty', e.target.value)} className="w-full border p-1 text-center" /></td>
-                                <td className="p-1 border"><input type="number" value={row.price} onChange={(e) => handleChange(idx, 'price', e.target.value)} className="w-full border p-1 text-right" /></td>
-                                <td className="p-1 border text-right bg-gray-50">{row.supplyPrice?.toLocaleString()}</td>
-                                <td className="p-1 border text-right bg-gray-50">{row.tax?.toLocaleString()}</td>
-                                <td className="p-1 border text-right font-bold bg-blue-50">{row.total?.toLocaleString()}</td>
-                                <td className="p-1 border"><input type="text" value={row.requested} onChange={(e) => handleChange(idx, 'requested', e.target.value)} className="w-full border p-1" /></td>
-                                <td className="p-1 border"><input type="text" value={row.status} onChange={(e) => handleChange(idx, 'status', e.target.value)} className="w-full border p-1" /></td>
+                                <td className="p-1 border"><input type="text" value={row.invoice || ''} onChange={(e) => handleChange(idx, 'invoice', e.target.value)} className="w-full border p-1 text-base sm:text-xs" /></td>
+                                <td className="p-1 border"><input type="date" value={row.date || ''} onChange={(e) => handleChange(idx, 'date', e.target.value)} className="w-full border p-1 text-base sm:text-xs" /></td>
+                                <td className="p-1 border"><input type="text" value={row.item || ''} onChange={(e) => handleChange(idx, 'item', e.target.value)} className="w-full border p-1 text-base sm:text-xs" /></td>
+                                <td className="p-1 border"><input type="number" value={row.qty || ''} onChange={(e) => handleChange(idx, 'qty', e.target.value)} className="w-full border p-1 text-center text-base sm:text-xs" inputMode="numeric" /></td>
+                                <td className="p-1 border"><input type="number" value={row.price || ''} onChange={(e) => handleChange(idx, 'price', e.target.value)} className="w-full border p-1 text-right text-base sm:text-xs" inputMode="numeric" /></td>
+                                <td className="p-1 border text-right bg-gray-50">{(row.supplyPrice || 0).toLocaleString()}</td>
+                                <td className="p-1 border text-right bg-gray-50">{(row.tax || 0).toLocaleString()}</td>
+                                <td className="p-1 border text-right font-bold bg-blue-50">{(row.total || 0).toLocaleString()}</td>
+                                <td className="p-1 border"><input type="text" value={row.requested || ''} onChange={(e) => handleChange(idx, 'requested', e.target.value)} className="w-full border p-1 text-base sm:text-xs" /></td>
+                                <td className="p-1 border"><input type="text" value={row.status || ''} onChange={(e) => handleChange(idx, 'status', e.target.value)} className="w-full border p-1 text-base sm:text-xs" /></td>
                                 <td className="p-1 border text-center">
                                     <button onClick={() => handleRemoveRow(idx)} className="text-red-500 hover:text-red-700">✖</button>
                                 </td>
@@ -92,4 +114,4 @@ const PaymentForm = ({ data, onChange }) => {
     );
 };
 
-export default PaymentForm;
+export default memo(PaymentForm);

@@ -1,36 +1,38 @@
-import React, { useEffect } from 'react';
+import React, { useState, useEffect, useCallback, memo } from 'react';
 
 const DeliveryInspectionForm = ({ data, onChange, onCopyPrevious }) => {
-    const categories = [
-        '카메라', '렌즈', '삼각대', '조명', '컴퓨터', '액세서리1', '액세서리2', '액세서리3', '액세서리4'
-    ];
+    // 로컬 상태 도입
+    const [localData, setLocalData] = useState(data);
 
-    // Initialize rows if empty on mount
     useEffect(() => {
-        if (!data.rows || data.rows.length === 0) {
-            const initialRows = categories.map(cat => ({
-                category: cat,
-                model: '',
-                spec: '',
-                confirmed: false
-            }));
-            onChange({ ...data, rows: initialRows });
-        }
+        setLocalData(data);
+    }, [data.id]);
+
+    const handleChange = useCallback((index, field, value) => {
+        setLocalData(prev => {
+            const currentRows = prev.rows || [];
+            const newRows = [...currentRows];
+            newRows[index] = { ...newRows[index], [field]: value };
+            return { ...prev, rows: newRows };
+        });
     }, []);
 
-    const handleChange = (index, field, value) => {
-        const currentRows = data.rows && data.rows.length > 0
-            ? data.rows
-            : categories.map(cat => ({ category: cat, model: '', spec: '', confirmed: false }));
+    const handleDateChange = useCallback((e) => {
+        const val = e.target.value;
+        setLocalData(prev => ({ ...prev, date: val }));
+    }, []);
 
-        const newRows = [...currentRows];
-        newRows[index] = { ...newRows[index], [field]: value };
-        onChange({ ...data, rows: newRows });
-    };
+    // 지연 보고
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            if (JSON.stringify(localData) !== JSON.stringify(data)) {
+                onChange(localData);
+            }
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [localData, onChange, data]);
 
-    const rows = (data.rows && data.rows.length > 0)
-        ? data.rows
-        : categories.map(cat => ({ category: cat, model: '', spec: '', confirmed: false }));
+    const rows = localData.rows || [];
 
     return (
         <div className="bg-white shadow-md rounded-lg p-6 w-full max-w-4xl mx-auto border border-gray-200">
@@ -40,9 +42,9 @@ const DeliveryInspectionForm = ({ data, onChange, onCopyPrevious }) => {
                     <input
                         type="date"
                         name="date"
-                        value={data.date || new Date().toISOString().slice(0, 10)}
-                        onChange={(e) => onChange({ ...data, date: e.target.value })}
-                        className="border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-600 font-normal"
+                        value={localData.date || new Date().toISOString().slice(0, 10)}
+                        onChange={handleDateChange}
+                        className="border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-600 font-normal text-base sm:text-sm"
                     />
                 </div>
                 {onCopyPrevious && (
@@ -74,7 +76,7 @@ const DeliveryInspectionForm = ({ data, onChange, onCopyPrevious }) => {
                                         type="text"
                                         value={row.model || ''}
                                         onChange={(e) => handleChange(idx, 'model', e.target.value)}
-                                        className="w-full border-2 border-gray-100 rounded px-2 py-1 focus:border-blue-500 outline-none"
+                                        className="w-full border-2 border-gray-100 rounded px-2 py-1 focus:border-blue-500 outline-none text-base sm:text-sm"
                                     />
                                 </td>
                                 <td className="px-4 py-2 text-sm">
@@ -82,7 +84,7 @@ const DeliveryInspectionForm = ({ data, onChange, onCopyPrevious }) => {
                                         type="text"
                                         value={row.spec || ''}
                                         onChange={(e) => handleChange(idx, 'spec', e.target.value)}
-                                        className="w-full border-2 border-gray-100 rounded px-2 py-1 focus:border-blue-500 outline-none"
+                                        className="w-full border-2 border-gray-100 rounded px-2 py-1 focus:border-blue-500 outline-none text-base sm:text-sm"
                                     />
                                 </td>
                                 <td className="px-4 py-2 text-center">
@@ -102,4 +104,4 @@ const DeliveryInspectionForm = ({ data, onChange, onCopyPrevious }) => {
     );
 };
 
-export default DeliveryInspectionForm;
+export default memo(DeliveryInspectionForm);
