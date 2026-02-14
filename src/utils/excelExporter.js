@@ -14,24 +14,25 @@ export const exportToExcel = (records) => {
     };
 
     const data = records.map(record => {
-        const c = record.consultation || {};
-        const e1 = record.estimate1 || {};
-        const e2 = record.estimate2 || {};
-        const e3 = record.estimate3 || {};
-        const demo = record.demo || {};
-        const contract = record.contract || {};
-        const delivery = record.delivery || {};
-        const inspection = record.inspection || {};
-        const payment = record.payment || {};
+        const d = record.data || {};
+        const c = d.consultation || {};
+        const e1 = d.estimate1 || {};
+        const e2 = d.estimate2 || {};
+        const e3 = d.estimate3 || {};
+        const demo = d.demo || {};
+        const contract = d.contract || {};
+        const delivery = d.delivery || {};
+        const inspection = d.inspection || {};
+        const payment = d.payment || {};
 
         return {
             'ID': record.id,
-            '진행상태': steps[record.currentStep || 0],
-            '최종수정일': record.updatedAt ? new Date(record.updatedAt).toLocaleString() : '',
+            '진행상태': steps[d.currentStep || 0],
+            '최종수정일': record.updated_at ? new Date(record.updated_at).toLocaleString() : '',
 
             // 상담 정보
             '상담일자': c.consultationDate || '',
-            '업체명': c.clientName || '',
+            '업체명': record.client_name || c.clientName || '',
             '부서': c.dept || '',
             '직책': c.position || '',
             '담당자': c.manager || '',

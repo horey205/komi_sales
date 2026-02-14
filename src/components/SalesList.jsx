@@ -5,8 +5,8 @@ const SalesList = ({ records, onSelect, onDelete, onCreate, userRole }) => {
     const [searchTerm, setSearchTerm] = useState('');
 
     const filteredRecords = records.filter(record => {
-        const clientName = record.consultation?.clientName || '이름 없음';
-        const manager = record.consultation?.manager || '';
+        const clientName = record.client_name || record.data?.consultation?.clientName || '이름 없음';
+        const manager = record.data?.consultation?.manager || '';
         return clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
             manager.toLowerCase().includes(searchTerm.toLowerCase());
     });
@@ -72,19 +72,19 @@ const SalesList = ({ records, onSelect, onDelete, onCreate, userRole }) => {
                                 <tr key={record.id} className="hover:bg-gray-50 transition-colors cursor-pointer group" onClick={() => onSelect(record.id)}>
                                     <td className="px-6 py-4 whitespace-nowrap">
                                         <div className="text-sm font-bold text-blue-600 group-hover:underline">
-                                            {record.consultation?.clientName || '이름 없음'}
+                                            {record.client_name || record.data?.consultation?.clientName || '이름 없음'}
                                         </div>
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap">
-                                        <div className="text-sm text-gray-900">{record.consultation?.manager || '-'}</div>
+                                        <div className="text-sm text-gray-900">{record.data?.consultation?.manager || '-'}</div>
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap">
-                                        <span className={`px-2 py-1 text-xs font-bold rounded-full ${getStatusColor(record.currentStep || 0)}`}>
-                                            {steps[record.currentStep || 0]}
+                                        <span className={`px-2 py-1 text-xs font-bold rounded-full ${getStatusColor(record.data?.currentStep || 0)}`}>
+                                            {steps[record.data?.currentStep || 0]}
                                         </span>
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                        {record.updatedAt ? new Date(record.updatedAt).toLocaleString() : '-'}
+                                        {record.updated_at ? new Date(record.updated_at).toLocaleString() : '-'}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                         {userRole === 'admin' ? (
