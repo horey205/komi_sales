@@ -204,7 +204,7 @@ function App() {
               inspection: { rows: structuredClone(defaultRows) },
               payment: { rows: [] }
             };
-            const { error } = await supabase.from('sales').insert({ id: newId, client_name: '신규 업체(입력중)', data: newRecord });
+            const { error } = await supabase.from('sales').insert({ id: newId, client_name: '신규 업체(입력중)', data: newRecord, updated_at: new Date().toISOString() });
             if (!error) { fetchRecords(); window.location.hash = `#edit/${newId}`; }
           }} onDelete={async (id) => { if (window.confirm('정말 삭제하시겠습니까?')) { await supabase.from('sales').delete().eq('id', id); fetchRecords(); } }} userRole={userRole} />
         ) : (
