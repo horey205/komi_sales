@@ -13,25 +13,24 @@ const MemoizedEstimateForm = memo(EstimateForm);
 const MemoizedDeliveryInspectionForm = memo(DeliveryInspectionForm);
 const MemoizedPaymentForm = memo(PaymentForm);
 
-// 기본 품목 양식
-// 기본 품목 리스트 (카메라, 렌즈, 삼각대, 조명, 컴퓨터, 액세서리1, 액세서리2, 액세서리3, 액세서리4)
+// 기본 품목 리스트
 const defaultItems = [
-  { name: '카메라', model: '', spec: '', price: '', currency: 'KRW' },
-  { name: '렌즈', model: '', spec: '', price: '', currency: 'KRW' },
-  { name: '삼각대', model: '', spec: '', price: '', currency: 'KRW' },
-  { name: '조명', model: '', spec: '', price: '', currency: 'KRW' },
-  { name: '컴퓨터', model: '', spec: '', price: '', currency: 'KRW' },
-  { name: '액세서리1', model: '', spec: '', price: '', currency: 'KRW' },
-  { name: '액세서리2', model: '', spec: '', price: '', currency: 'KRW' },
-  { name: '액세서리3', model: '', spec: '', price: '', currency: 'KRW' },
-  { name: '액세서리4', model: '', spec: '', price: '', currency: 'KRW' }
+  { name: '카메라', model: '', spec: '', qty: 0, price: 0, amount: 0, currency: 'KRW' },
+  { name: '렌즈', model: '', spec: '', qty: 0, price: 0, amount: 0, currency: 'KRW' },
+  { name: '삼각대', model: '', spec: '', qty: 0, price: 0, amount: 0, currency: 'KRW' },
+  { name: '조명', model: '', spec: '', qty: 0, price: 0, amount: 0, currency: 'KRW' },
+  { name: '컴퓨터', model: '', spec: '', qty: 0, price: 0, amount: 0, currency: 'KRW' },
+  { name: '액세서리1', model: '', spec: '', qty: 0, price: 0, amount: 0, currency: 'KRW' },
+  { name: '액세서리2', model: '', spec: '', qty: 0, price: 0, amount: 0, currency: 'KRW' },
+  { name: '액세서리3', model: '', spec: '', qty: 0, price: 0, amount: 0, currency: 'KRW' },
+  { name: '액세서리4', model: '', spec: '', qty: 0, price: 0, amount: 0, currency: 'KRW' }
 ];
 
-const defaultRows = defaultItems.map(item => ({ category: item.name, model: '', spec: '', confirmed: false }));
+const defaultRows = defaultItems.map(item => ({ category: item.name, model: '', spec: '', qty: 0, confirmed: false }));
 
 function App() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [userRole, setUserRole] = useState('viewer');
+  const [isLoggedIn, setIsLoggedIn] = useState(sessionStorage.getItem('isLoggedIn') === 'true');
+  const [userRole, setUserRole] = useState(sessionStorage.getItem('userRole') || 'viewer');
   const [view, setView] = useState('list');
   const [records, setRecords] = useState([]);
   const [currentId, setCurrentId] = useState(null);
@@ -39,154 +38,113 @@ function App() {
   const [currentStep, setCurrentStep] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
 
-  const fetchRecords = async () => {
-    const { data, error } = await supabase.from('sales').select('*').order('updated_at', { ascending: false });
-    if (!error && data) {
-      const loaded = data.map(row => {
-        try { return typeof row.data === 'string' ? JSON.parse(row.data) : row.data; }
-        catch (e) { return null; }
-      }).filter(r => r && r.id);
-      setRecords(loaded);
-    }
-  };
-
-  const handleRouting = useCallback(() => {
-    const hash = window.location.hash;
-    if (!hash || hash === '#list') {
-      setView('list');
-      setEditingRecord(null);
-      setCurrentId(null);
-    } else if (hash.startsWith('#edit/')) {
-      const id = hash.split('/')[1];
-      setCurrentId(id);
-      setView('edit');
-    }
+  // 해시 라우팅 처리
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash;
+      if (hash.startsWith('#edit/')) {
+        const id = hash.replace('#edit/', '');
+        setCurrentId(id);
+        setView('edit');
+      } else {
+        setView('list');
+        setCurrentId(null);
+        setEditingRecord(null);
+      }
+    };
+    window.addEventListener('hashchange', handleHashChange);
+    handleHashChange();
+    return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
 
-  useEffect(() => {
-    const loggedIn = localStorage.getItem('isLoggedIn') === 'true';
-    if (loggedIn) {
-      setIsLoggedIn(true);
-      setUserRole(sessionStorage.getItem('userRole') || 'viewer');
-      fetchRecords();
-    }
-    window.addEventListener('hashchange', handleRouting);
-    handleRouting();
-    return () => window.removeEventListener('hashchange', handleRouting);
-  }, [handleRouting]);
+  // 데이터 불러오기
+  const fetchRecords = async () => {
+    const { data, error } = await supabase.from('sales').select('*').order('updated_at', { ascending: false });
+    if (!error) setRecords(data);
+  };
 
-  // 레코드 데이터 로드 및 초기화 (핵심: 데이터가 없으면 기본 양식 주입)
+  useEffect(() => {
+    if (isLoggedIn) fetchRecords();
+  }, [isLoggedIn]);
+
+  // 편집 데이터 동기화
   useEffect(() => {
     if (view === 'edit' && currentId && records.length > 0) {
       const found = records.find(r => String(r.id) === String(currentId));
       if (found) {
-        // 데이터가 비어있다면 기본 양식으로 채워줌
+        const d = found.data || found;
         const sanitized = {
-          ...found,
-          consultation: found.consultation || { clientName: '' },
-          estimate1: { items: found.estimate1?.items?.length ? found.estimate1.items : defaultItems, total: found.estimate1?.total || 0 },
-          estimate2: { items: found.estimate2?.items?.length ? found.estimate2.items : defaultItems, total: found.estimate2?.total || 0 },
-          estimate3: { items: found.estimate3?.items?.length ? found.estimate3.items : defaultItems, total: found.estimate3?.total || 0 },
-          demo: { items: found.demo?.items?.length ? found.demo.items : defaultItems, total: found.demo?.total || 0 },
-          contract: { items: found.contract?.items?.length ? found.contract.items : defaultItems, total: found.contract?.total || 0 },
-          delivery: { rows: found.delivery?.rows?.length ? found.delivery.rows : defaultRows },
-          inspection: { rows: found.inspection?.rows?.length ? found.inspection.rows : defaultRows },
-          payment: found.payment || { rows: [] }
+          ...d,
+          id: found.id,
+          consultation: d.consultation || { clientName: '' },
+          estimate1: d.estimate1 || { items: JSON.parse(JSON.stringify(defaultItems)), total: 0 },
+          estimate2: d.estimate2 || { items: JSON.parse(JSON.stringify(defaultItems)), total: 0 },
+          estimate3: d.estimate3 || { items: JSON.parse(JSON.stringify(defaultItems)), total: 0 },
+          demo: d.demo || { items: JSON.parse(JSON.stringify(defaultItems)), total: 0 },
+          contract: d.contract || { items: JSON.parse(JSON.stringify(defaultItems)), total: 0 },
+          delivery: d.delivery || { rows: JSON.parse(JSON.stringify(defaultRows)) },
+          inspection: d.inspection || { rows: JSON.parse(JSON.stringify(defaultRows)) },
+          payment: d.payment || { rows: [] }
         };
         setEditingRecord(sanitized);
-        setCurrentStep(found.currentStep || 0);
+        setCurrentStep(d.currentStep || 0);
       }
     }
   }, [view, currentId, records]);
 
-  const handleManualSave = async (recordToSave = editingRecord) => {
-    if (!recordToSave || isSaving) return;
-    setIsSaving(true);
-    const finalRecord = { ...recordToSave, updatedAt: new Date().toISOString() };
-    const { error } = await supabase.from('sales').upsert({
-      id: finalRecord.id,
-      client_name: finalRecord.consultation?.clientName || '이름 없음',
-      manager_name: finalRecord.consultation?.manager || '',
-      updated_at: finalRecord.updatedAt,
-      data: finalRecord
-    }, { onConflict: 'id' });
+  const updateCurrentRecord = useCallback((section, data) => {
+    setEditingRecord(prev => prev ? ({ ...prev, [section]: data }) : null);
+  }, []);
 
-    if (!error) {
-      setEditingRecord(finalRecord);
-      setRecords(prev => prev.map(r => String(r.id) === String(finalRecord.id) ? finalRecord : r));
-    } else {
-      alert('저장 실패: ' + error.message);
+  const handleManualSave = async () => {
+    if (!editingRecord) return;
+    setIsSaving(true);
+    const recordToSave = { ...editingRecord, currentStep };
+    const { error } = await supabase.from('sales').upsert({
+      id: editingRecord.id,
+      client_name: editingRecord.consultation?.clientName || '미지정',
+      data: recordToSave,
+      updated_at: new Date().toISOString()
+    });
+    if (error) alert('저장 실패: ' + error.message);
+    else {
+      await fetchRecords();
+      alert('기록이 서버에 안전하게 저장되었습니다.');
     }
     setIsSaving(false);
   };
 
   const handleCopyPrevious = useCallback(() => {
     if (!editingRecord) return;
-
+    const steps = ['consultation', 'estimate1', 'estimate2', 'estimate3', 'demo', 'contract', 'delivery', 'inspection'];
     let prevSection = '';
-    let currentSection = '';
+    let currentSection = steps[currentStep];
 
-    // 단계별 복사 로직 정의
-    if (currentStep === 5) { // 계약 단계 (step 6)
-      prevSection = 'estimate1'; // 예: 견적 1차에서 가져옴
-      currentSection = 'contract';
-    } else if (currentStep === 6) { // 납품 단계 (step 7)
-      prevSection = 'contract';
-      currentSection = 'delivery';
-    } else if (currentStep === 7) { // 검수 단계 (step 8)
-      prevSection = 'delivery';
-      currentSection = 'inspection';
-    } else if (currentStep >= 1 && currentStep <= 4) { // 견적 1~3, 데모
-      const steps = ['consultation', 'estimate1', 'estimate2', 'estimate3', 'demo'];
-      prevSection = steps[currentStep - 1];
-      currentSection = steps[currentStep];
-    }
+    if (currentStep === 5) prevSection = 'estimate1'; // 계약은 보통 1차 견적에서 복사
+    else if (currentStep === 6) prevSection = 'contract';
+    else if (currentStep === 7) prevSection = 'delivery';
+    else if (currentStep > 0 && currentStep <= 4) prevSection = steps[currentStep - 1];
 
     if (prevSection && currentSection) {
       const prevData = editingRecord[prevSection];
       if (prevData) {
         let copiedContent;
-
-        // 데이터 구조 변환 (items -> rows)
         if (prevData.items && (currentSection === 'delivery' || currentSection === 'inspection')) {
-          copiedContent = {
-            rows: prevData.items.map(item => ({
-              category: item.name || '',
-              model: item.model || '',
-              spec: item.spec || '',
-              qty: item.qty || 0,
-              confirmed: false
-            }))
-          };
+          copiedContent = { rows: prevData.items.map(item => ({ category: item.name || '', model: item.model || '', spec: item.spec || '', qty: item.qty || 0, confirmed: false })), date: new Date().toISOString().slice(0, 10) };
         } else if (prevData.rows && currentSection === 'inspection') {
-          // 납품(rows) -> 검수(rows)
-          copiedContent = {
-            rows: prevData.rows.map(row => ({
-              ...row,
-              confirmed: false
-            }))
-          };
+          copiedContent = { rows: prevData.rows.map(row => ({ ...row, confirmed: false })), date: new Date().toISOString().slice(0, 10) };
         } else {
-          // 동일 구조 복사
           copiedContent = JSON.parse(JSON.stringify(prevData));
         }
-
         setEditingRecord(prev => ({ ...prev, [currentSection]: copiedContent }));
       }
     }
   }, [editingRecord, currentStep]);
 
-  const updateCurrentRecord = useCallback((section, data) => {
-    setEditingRecord(prev => prev ? ({ ...prev, [section]: data }) : null);
-  }, []);
-
   const handleLogout = () => {
     if (window.confirm('로그아웃 하시겠습니까?')) {
       setIsLoggedIn(false);
-      setUserRole('viewer');
-      localStorage.removeItem('isLoggedIn');
-      sessionStorage.removeItem('isLoggedIn');
-      sessionStorage.removeItem('userRole');
+      sessionStorage.clear();
       window.location.hash = '#list';
     }
   };
@@ -199,124 +157,105 @@ function App() {
     fetchRecords();
   }} />;
 
-  const sectionMap = ['consultation', 'estimate1', 'estimate2', 'estimate3', 'demo', 'contract', 'delivery', 'inspection', 'payment'];
-  const titles = ['상담 정보', '견적 1차', '견적 2차', '견적 3차', '데모', '계약', '납품', '검수', '결제'];
+  const sectionMap = ['consultation', 'estimate1', 'estimate2', 'estimate3', 'demo', 'contract', 'delivery', 'inspection', 'payment', 'complete'];
+  const titles = ['기초 상담', '1차 견적', '2차 견적', '3차 견적', '데모 협의', '계약 확정', '제품 납품', '최종 검수', '결제 관리', '마침'];
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-      <header className="bg-white border-b sticky top-0 z-50 px-4 py-2 flex justify-between items-center shadow-sm">
+    <div className="min-h-screen bg-gray-50 flex flex-col font-sans text-gray-900">
+      <header className="bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center sticky top-0 z-50 shadow-md">
         <div className="flex items-center gap-4">
-          <h1 className="font-black text-blue-800 cursor-pointer text-xl" onClick={() => window.location.hash = '#list'}>영업DB</h1>
-          <span className={`text-[10px] uppercase tracking-wider font-black px-2 py-0.5 rounded-md ${userRole === 'admin' ? 'bg-red-500 text-white' : 'bg-blue-500 text-white'}`}>
-            {userRole === 'admin' ? 'ADMIN' : 'VIEWER'}
-          </span>
+          <h1 className="text-2xl font-black text-blue-600 tracking-tighter cursor-pointer" onClick={() => window.location.hash = '#list'}>KOMI SALES</h1>
+          <span className="bg-gray-100 text-gray-500 text-[10px] px-2 py-0.5 rounded font-black uppercase tracking-widest">{userRole} AUTH</span>
         </div>
         <div className="flex gap-2">
-          <button onClick={() => window.location.hash = '#list'} className="px-3 py-1.5 bg-gray-100 rounded-lg font-bold text-gray-600 hover:bg-gray-200 transition-colors">목록</button>
-          <button onClick={handleLogout} className="px-3 py-1.5 bg-red-50 text-red-600 rounded-lg font-bold border border-red-100 hover:bg-red-100 transition-colors">로그아웃</button>
+          <button onClick={() => window.location.hash = '#list'} className="px-5 py-2 bg-gray-100 rounded-xl font-bold text-gray-600 hover:bg-gray-200 transition-all active:scale-95 shadow-sm">목록</button>
+          <button onClick={handleLogout} className="px-5 py-2 bg-red-50 text-red-600 rounded-xl font-bold border border-red-100 hover:bg-red-100 transition-all active:scale-95 shadow-sm">로그아웃</button>
         </div>
       </header>
 
-      <main className="flex-1 p-4 max-w-5xl mx-auto w-full">
+      <main className="flex-1 p-4 max-w-6xl mx-auto w-full mb-20">
         {view === 'list' ? (
           <SalesList records={records} onSelect={(id) => window.location.hash = `#edit/${id}`} onCreate={async () => {
             const newId = Date.now().toString();
-            const newRecord = { id: newId, currentStep: 0, updatedAt: new Date().toISOString(), consultation: { clientName: '', dept: '', position: '', manager: '', phone1: '', phone2: '', email: '', address: '', content: '' }, estimate1: { items: defaultItems, total: 0 }, estimate2: { items: defaultItems, total: 0 }, estimate3: { items: defaultItems, total: 0 }, demo: { items: defaultItems, total: 0 }, contract: { items: defaultItems, total: 0 }, delivery: { rows: defaultRows }, inspection: { rows: defaultRows }, payment: { rows: [] } };
-            await supabase.from('sales').insert({ id: newId, client_name: '신규 업체', data: newRecord });
-            fetchRecords();
-            window.location.hash = `#edit/${newId}`;
-          }} onDelete={async (id) => { if (window.confirm('삭제하시겠습니까?')) { await supabase.from('sales').delete().eq('id', id); fetchRecords(); } }} userRole={userRole} />
+            const newRecord = {
+              id: newId,
+              currentStep: 0,
+              updatedAt: new Date().toISOString(),
+              consultation: { clientName: '', dept: '', position: '', manager: '', phone1: '', phone2: '', email: '', address: '', content: '' },
+              estimate1: { items: JSON.parse(JSON.stringify(defaultItems)), total: 0, currency: 'KRW' },
+              estimate2: { items: JSON.parse(JSON.stringify(defaultItems)), total: 0, currency: 'KRW' },
+              estimate3: { items: JSON.parse(JSON.stringify(defaultItems)), total: 0, currency: 'KRW' },
+              demo: { items: JSON.parse(JSON.stringify(defaultItems)), total: 0 },
+              contract: { items: JSON.parse(JSON.stringify(defaultItems)), total: 0, currency: 'KRW' },
+              delivery: { rows: JSON.parse(JSON.stringify(defaultRows)) },
+              inspection: { rows: JSON.parse(JSON.stringify(defaultRows)) },
+              payment: { rows: [] }
+            };
+            const { error } = await supabase.from('sales').insert({ id: newId, client_name: '신규 업체(입력중)', data: newRecord });
+            if (!error) { fetchRecords(); window.location.hash = `#edit/${newId}`; }
+          }} onDelete={async (id) => { if (window.confirm('정말 삭제하시겠습니까?')) { await supabase.from('sales').delete().eq('id', id); fetchRecords(); } }} userRole={userRole} />
         ) : (
-          <div key={currentId}>
-            <div className="mb-4 flex justify-between items-center bg-blue-50 p-3 rounded-lg border border-blue-100 shadow-sm">
-              <span className="font-bold text-blue-800">업체: {editingRecord?.consultation?.clientName || '신규 업체'}</span>
-              <span className="text-xs text-blue-500 font-bold bg-white px-2 py-1 rounded-full border">단계 {currentStep + 1}/10</span>
+          <div key={currentId + currentStep}>
+            <div className="mb-6 flex justify-between items-center bg-blue-600 p-5 rounded-3xl shadow-xl border-4 border-white">
+              <span className="font-black text-white text-xl">🏢 {editingRecord?.consultation?.clientName || '업체명 미입력'}</span>
+              <span className="text-xs text-blue-600 font-black bg-white px-4 py-2 rounded-full shadow-inner">{titles[currentStep]} ({currentStep + 1}/10)</span>
             </div>
-            <Wizard steps={['상담', '1차', '2차', '3차', '데모', '계약', '납품', '검수', '결제', '완료']} currentStep={currentStep} onStepClick={(idx) => { setCurrentStep(idx); setEditingRecord(p => p ? ({ ...p, currentStep: idx }) : null); }} />
-            <div className="mt-6 mb-20 space-y-6">
-              {/* 상단 저장 버튼 (sticky) */}
-              <div className="flex justify-end sticky top-16 z-40 py-2">
+
+            <Wizard steps={['상담', '1차', '2차', '3차', '데모', '계약', '납품', '검수', '결제', '완료']} currentStep={currentStep} onStepClick={(idx) => { setCurrentStep(idx); }} />
+
+            <div className="mt-8 space-y-8 pb-32">
+              {/* 상단 통합 저장 버튼 */}
+              <div className="flex justify-end sticky top-20 z-40 py-2">
                 <button
-                  onClick={() => handleManualSave()}
+                  onClick={handleManualSave}
                   disabled={isSaving}
                   className={`px-10 py-4 rounded-2xl font-black text-white shadow-2xl active:scale-95 transition-all text-xl flex items-center gap-2 ${isSaving ? 'bg-gray-400' : 'bg-blue-600 hover:bg-blue-700 hover:-translate-y-1'}`}
                 >
-                  {isSaving ? '⏳ 저장 중...' : '💾 지금 저장하기'}
+                  {isSaving ? '⏳ 저장 중...' : '💾 내용 저장하기'}
                 </button>
               </div>
 
-              {currentStep === 0 && <MemoizedConsultationForm data={editingRecord?.consultation || {}} onChange={(d) => updateCurrentRecord('consultation', d)} />}
-
-              {/* 견적 1~3차 및 계약 */}
+              {currentStep === 0 && <MemoizedConsultationForm data={editingRecord?.consultation} onChange={(d) => updateCurrentRecord('consultation', d)} />}
               {(currentStep >= 1 && currentStep <= 3) || currentStep === 5 ? (
                 <MemoizedEstimateForm
                   title={titles[currentStep]}
-                  data={editingRecord?.[sectionMap[currentStep]] || { items: defaultItems, total: 0 }}
+                  data={editingRecord?.[sectionMap[currentStep]]}
                   onChange={(d) => updateCurrentRecord(sectionMap[currentStep], d)}
                   onCopyPrevious={handleCopyPrevious}
                 />
               ) : null}
-
-              {/* 데모 단계 */}
-              {currentStep === 4 && (
-                <MemoizedEstimateForm
-                  title="데모 정보"
-                  isDemo={true}
-                  data={editingRecord?.demo || { items: defaultItems }}
-                  onChange={(d) => updateCurrentRecord('demo', d)}
-                  onCopyPrevious={handleCopyPrevious}
-                />
-              )}
-
-              {/* 납품 단계 */}
-              {currentStep === 6 && (
-                <MemoizedDeliveryInspectionForm
-                  title="납품 정보"
-                  mode="delivery"
-                  data={editingRecord?.delivery || { rows: defaultRows }}
-                  onChange={(d) => updateCurrentRecord('delivery', d)}
-                  onCopyPrevious={handleCopyPrevious}
-                />
-              )}
-
-              {/* 검수 단계 */}
-              {currentStep === 7 && (
-                <MemoizedDeliveryInspectionForm
-                  title="검수 정보"
-                  mode="inspection"
-                  data={editingRecord?.inspection || { rows: defaultRows }}
-                  onChange={(d) => updateCurrentRecord('inspection', d)}
-                  onCopyPrevious={handleCopyPrevious}
-                />
-              )}
-
-              {currentStep === 8 && <MemoizedPaymentForm data={editingRecord?.payment || { rows: [] }} onChange={(d) => updateCurrentRecord('payment', d)} />}
+              {currentStep === 4 && <MemoizedEstimateForm title="데모 협의" isDemo={true} data={editingRecord?.demo} onChange={(d) => updateCurrentRecord('demo', d)} onCopyPrevious={handleCopyPrevious} />}
+              {currentStep === 6 && <MemoizedDeliveryInspectionForm title="제품 납품" mode="delivery" data={editingRecord?.delivery} onChange={(d) => updateCurrentRecord('delivery', d)} onCopyPrevious={handleCopyPrevious} />}
+              {currentStep === 7 && <MemoizedDeliveryInspectionForm title="최종 검수" mode="inspection" data={editingRecord?.inspection} onChange={(d) => updateCurrentRecord('inspection', d)} onCopyPrevious={handleCopyPrevious} />}
+              {currentStep === 8 && <MemoizedPaymentForm data={editingRecord?.payment} onChange={(d) => updateCurrentRecord('payment', d)} />}
 
               {currentStep === 9 && (
-                <div className="p-20 text-center bg-white rounded-3xl border-4 border-blue-500 shadow-2xl">
-                  <h2 className="text-4xl font-black text-blue-800 mb-6">🚀 모든 작업 완료!</h2>
-                  <p className="text-gray-500 mb-10 font-bold text-lg">기초 상담부터 결제까지 모든 단계가 기록되었습니다.</p>
-                  <button onClick={() => window.location.hash = '#list'} className="bg-blue-600 text-white px-12 py-5 rounded-2xl font-black text-2xl hover:bg-blue-700 shadow-xl transition-all active:scale-95">대시보드로 돌아가기</button>
+                <div className="p-20 text-center bg-white rounded-3xl border-4 border-dashed border-blue-200 shadow-2xl">
+                  <h2 className="text-5xl font-black text-blue-800 mb-6 italic tracking-tighter">MISSION COMPLETE!</h2>
+                  <p className="text-gray-400 mb-10 font-bold text-lg">모든 프로세스가 종료되었습니다. 데이터를 최종 확인 후 목록으로 돌아가세요.</p>
+                  <button onClick={() => window.location.hash = '#list'} className="bg-blue-600 text-white px-16 py-6 rounded-3xl font-black text-2xl hover:bg-blue-700 shadow-xl transition-all active:scale-95">대시보드 메인으로</button>
                 </div>
               )}
 
-              {/* 하단 저장 버튼 (강조) */}
+              {/* 하단 통합 저장 버튼 (플로팅 고정 효과를 위해 위에 패딩 추가) */}
               {currentStep < 9 && (
-                <div className="flex justify-center pt-10 border-t border-gray-200">
+                <div className="flex justify-center pt-10 border-t-4 border-gray-100 mt-10">
                   <button
-                    onClick={() => handleManualSave()}
+                    onClick={handleManualSave}
                     disabled={isSaving}
-                    className={`w-full max-w-xl py-6 rounded-2xl font-black text-white shadow-2xl active:scale-95 transition-all text-2xl flex justify-center items-center gap-3 ${isSaving ? 'bg-gray-400' : 'bg-green-600 hover:bg-green-700'}`}
+                    className={`w-full max-w-2xl py-8 rounded-3xl font-black text-white shadow-2xl active:scale-95 transition-all text-3xl flex justify-center items-center gap-4 ${isSaving ? 'bg-gray-400 animate-pulse' : 'bg-green-600 hover:bg-green-700'}`}
                   >
-                    {isSaving ? '⏳ 서버 전송 중...' : '✔ 입력 완료 및 최종 저장'}
+                    {isSaving ? '⏳ 데이터 전송 중...' : '✔ 작성 완료 및 전송'}
                   </button>
                 </div>
               )}
             </div>
+
+            {/* 스탭 이동 내비게이션 */}
             {currentStep < 9 && (
-              <div className="flex gap-4 sticky bottom-4 z-40 bg-gray-50/80 backdrop-blur-sm p-2 rounded-2xl">
-                <button onClick={() => { const s = currentStep - 1; if (s >= 0) { setCurrentStep(s); setEditingRecord(p => p ? ({ ...p, currentStep: s }) : null); window.scrollTo(0, 0); } }} disabled={currentStep === 0} className={`flex-1 py-5 rounded-2xl font-black shadow-lg transition-all ${currentStep === 0 ? 'bg-gray-200 text-gray-400' : 'bg-gray-700 text-white hover:bg-gray-800'}`}>이전 단계</button>
-                <button onClick={() => { const s = currentStep + 1; if (s <= 9) { setCurrentStep(s); setEditingRecord(p => p ? ({ ...p, currentStep: s }) : null); window.scrollTo(0, 0); } }} className="flex-1 bg-blue-600 text-white py-5 rounded-2xl font-black shadow-lg text-xl hover:bg-blue-700 active:scale-95">다음 단계 →</button>
+              <div className="fixed bottom-6 left-1/2 -translate-x-1/2 flex gap-4 z-50 w-full max-w-4xl px-4">
+                <button onClick={() => { const s = currentStep - 1; if (s >= 0) { setCurrentStep(s); window.scrollTo(0, 0); } }} disabled={currentStep === 0} className={`flex-1 py-5 rounded-2xl font-black shadow-2xl transition-all backdrop-blur-md border-2 ${currentStep === 0 ? 'bg-white/50 text-gray-300 border-gray-100' : 'bg-gray-800/90 text-white border-gray-700 hover:bg-gray-900'}`}>이전 단계</button>
+                <button onClick={() => { const s = currentStep + 1; if (s <= 9) { setCurrentStep(s); window.scrollTo(0, 0); } }} className="flex-1 bg-blue-600/90 text-white py-5 rounded-2xl font-black shadow-2xl text-xl backdrop-blur-md border-2 border-blue-400 hover:bg-blue-700">다음 단계 →</button>
               </div>
             )}
           </div>
@@ -325,4 +264,5 @@ function App() {
     </div>
   );
 }
+
 export default App;
