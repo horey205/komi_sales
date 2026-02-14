@@ -121,13 +121,48 @@ function App() {
   };
 
   const handleCopyPrevious = useCallback(() => {
-    if (!editingRecord || currentStep < 1) return;
-    const steps = ['consultation', 'estimate1', 'estimate2', 'estimate3', 'demo', 'contract'];
-    const prevSection = steps[currentStep - 1];
-    const currentSection = steps[currentStep];
-    const prevData = editingRecord[prevSection];
-    if (prevData) {
-      setEditingRecord(prev => ({ ...prev, [currentSection]: JSON.parse(JSON.stringify(prevData)) }));
+    if (!editingRecord) return;
+
+    let prevSection = '';
+    let currentSection = '';
+
+    // 단계별 복사 로직 정의
+    if (currentStep === 5) { // 계약 단계 (step 6)
+      prevSection = 'estimate1'; // 예: 견적 1차에서 가져옴
+      currentSection = 'contract';
+    } else if (currentStep === 6) { // 납품 단계 (step 7)
+      prevSection = 'contract';
+      currentSection = 'delivery';
+    } else if (currentStep === 7) { // 검수 단계 (step 8)
+      prevSection = 'delivery';
+      currentSection = 'inspection';
+    } else if (currentStep >= 1 && currentStep <= 4) { // 견적 1~3, 데모
+      const steps = ['consultation', 'estimate1', 'estimate2', 'estimate3', 'demo'];
+      prevSection = steps[currentStep - 1];
+      currentSection = steps[currentStep];
+    }
+
+    if (prevSection && currentSection) {
+      const prevData = editingRecord[prevSection];
+      if (prevData) {
+        // 품목 기반 데이터(items)와 행 기반 데이터(rows) 호환성 처리
+        let copiedContent = JSON.parse(JSON.stringify(prevData));
+
+        // estimate/demo (items) -> delivery/inspection (rows) 변환
+        if (prevData.items && (currentSection === 'delivery' || currentSection === 'inspection')) {
+          copiedContent = {
+            rows: prevData.items.map(item => ({
+              category: item.name,
+              model: item.model,
+              spec: item.spec,
+              qty: item.qty || 0,
+              confirmed: false
+            }))
+          };
+        }
+
+        setEditingRecord(prev => ({ ...prev, [currentSection]: copiedContent }));
+      }
     }
   }, [editingRecord, currentStep]);
 
@@ -148,7 +183,8 @@ function App() {
   if (!isLoggedIn) return <Login onLogin={(key, role) => {
     setIsLoggedIn(true);
     setUserRole(role);
-    localStorage.setItem('isLoggedIn', 'true');
+    // localStorage에는 저장하지 않고 sessionStorage에만 저장하여 새로고침 시 날아가게 함
+    sessionStorage.setItem('isLoggedIn', 'true');
     sessionStorage.setItem('userRole', role);
     fetchRecords();
   }} />;
@@ -194,9 +230,50 @@ function App() {
             <Wizard steps={['상담', '1차', '2차', '3차', '데모', '계약', '납품', '검수', '결제', '완료']} currentStep={currentStep} onStepClick={(idx) => { setCurrentStep(idx); setEditingRecord(p => p ? ({ ...p, currentStep: idx }) : null); }} />
             <div className="mt-6 mb-10">
               {currentStep === 0 && <MemoizedConsultationForm data={editingRecord?.consultation || {}} onChange={(d) => updateCurrentRecord('consultation', d)} />}
-              {currentStep >= 1 && currentStep <= 5 && <MemoizedEstimateForm title={titles[currentStep]} data={editingRecord?.[sectionMap[currentStep]] || { items: defaultItems, total: 0 }} onChange={(d) => updateCurrentRecord(sectionMap[currentStep], d)} onCopyPrevious={currentStep > 0 ? handleCopyPrevious : null} />}
-              {currentStep === 6 && <MemoizedDeliveryInspectionForm data={editingRecord?.delivery || { rows: defaultRows }} onChange={(d) => updateCurrentRecord('delivery', d)} onCopyPrevious={handleCopyPrevious} />}
-              {currentStep === 7 && <MemoizedDeliveryInspectionForm data={editingRecord?.inspection || { rows: defaultRows }} onChange={(d) => updateCurrentRecord('inspection', d)} />}
+
+              {/* 견적 1~3차 및 계약 */}
+              {(currentStep >= 1 && currentStep <= 3) || currentStep === 5 ? (
+                <MemoizedEstimateForm
+                  title={titles[currentStep]}
+                  data={editingRecord?.[sectionMap[currentStep]] || { items: defaultItems, total: 0 }}
+                  onChange={(d) => updateCurrentRecord(sectionMap[currentStep], d)}
+                  onCopyPrevious={handleCopyPrevious}
+                />
+              ) : null}
+
+              {/* 데모 단계: 금액 삭제, 비고 추가 */}
+              {currentStep === 4 && (
+                <MemoizedEstimateForm
+                  title="데모 정보"
+                  isDemo={true}
+                  data={editingRecord?.demo || { items: defaultItems }}
+                  onChange={(d) => updateCurrentRecord('demo', d)}
+                  onCopyPrevious={handleCopyPrevious}
+                />
+              )}
+
+              {/* 납품 단계 */}
+              {currentStep === 6 && (
+                <MemoizedDeliveryInspectionForm
+                  title="납품 정보"
+                  mode="delivery"
+                  data={editingRecord?.delivery || { rows: defaultRows }}
+                  onChange={(d) => updateCurrentRecord('delivery', d)}
+                  onCopyPrevious={handleCopyPrevious}
+                />
+              )}
+
+              {/* 검수 단계 */}
+              {currentStep === 7 && (
+                <MemoizedDeliveryInspectionForm
+                  title="검수 정보"
+                  mode="inspection"
+                  data={editingRecord?.inspection || { rows: defaultRows }}
+                  onChange={(d) => updateCurrentRecord('inspection', d)}
+                  onCopyPrevious={handleCopyPrevious}
+                />
+              )}
+
               {currentStep === 8 && <MemoizedPaymentForm data={editingRecord?.payment || { rows: [] }} onChange={(d) => updateCurrentRecord('payment', d)} />}
               {currentStep === 9 && <div className="p-20 text-center bg-white rounded-xl border border-blue-200 shadow-inner"><h2 className="text-2xl font-black text-blue-800 mb-4">🚀 완료되었습니다</h2><button onClick={() => window.location.hash = '#list'} className="bg-blue-600 text-white px-8 py-3 rounded-xl font-bold">목록가기</button></div>}
             </div>
