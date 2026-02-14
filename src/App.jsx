@@ -145,20 +145,30 @@ function App() {
     if (prevSection && currentSection) {
       const prevData = editingRecord[prevSection];
       if (prevData) {
-        // 품목 기반 데이터(items)와 행 기반 데이터(rows) 호환성 처리
-        let copiedContent = JSON.parse(JSON.stringify(prevData));
+        let copiedContent;
 
-        // estimate/demo (items) -> delivery/inspection (rows) 변환
+        // 데이터 구조 변환 (items -> rows)
         if (prevData.items && (currentSection === 'delivery' || currentSection === 'inspection')) {
           copiedContent = {
             rows: prevData.items.map(item => ({
-              category: item.name,
-              model: item.model,
-              spec: item.spec,
+              category: item.name || '',
+              model: item.model || '',
+              spec: item.spec || '',
               qty: item.qty || 0,
               confirmed: false
             }))
           };
+        } else if (prevData.rows && currentSection === 'inspection') {
+          // 납품(rows) -> 검수(rows)
+          copiedContent = {
+            rows: prevData.rows.map(row => ({
+              ...row,
+              confirmed: false
+            }))
+          };
+        } else {
+          // 동일 구조 복사
+          copiedContent = JSON.parse(JSON.stringify(prevData));
         }
 
         setEditingRecord(prev => ({ ...prev, [currentSection]: copiedContent }));
@@ -175,6 +185,7 @@ function App() {
       setIsLoggedIn(false);
       setUserRole('viewer');
       localStorage.removeItem('isLoggedIn');
+      sessionStorage.removeItem('isLoggedIn');
       sessionStorage.removeItem('userRole');
       window.location.hash = '#list';
     }
@@ -183,7 +194,6 @@ function App() {
   if (!isLoggedIn) return <Login onLogin={(key, role) => {
     setIsLoggedIn(true);
     setUserRole(role);
-    // localStorage에는 저장하지 않고 sessionStorage에만 저장하여 새로고침 시 날아가게 함
     sessionStorage.setItem('isLoggedIn', 'true');
     sessionStorage.setItem('userRole', role);
     fetchRecords();
@@ -202,11 +212,6 @@ function App() {
           </span>
         </div>
         <div className="flex gap-2">
-          {view === 'edit' && (
-            <button onClick={() => handleManualSave()} disabled={isSaving} className={`px-4 py-1.5 rounded-lg font-bold text-white shadow-md active:scale-95 transition-all ${isSaving ? 'bg-gray-400' : 'bg-green-600'}`}>
-              {isSaving ? '저장 중...' : '✔ 지금 저장'}
-            </button>
-          )}
           <button onClick={() => window.location.hash = '#list'} className="px-3 py-1.5 bg-gray-100 rounded-lg font-bold text-gray-600 hover:bg-gray-200 transition-colors">목록</button>
           <button onClick={handleLogout} className="px-3 py-1.5 bg-red-50 text-red-600 rounded-lg font-bold border border-red-100 hover:bg-red-100 transition-colors">로그아웃</button>
         </div>
@@ -228,7 +233,18 @@ function App() {
               <span className="text-xs text-blue-500 font-bold bg-white px-2 py-1 rounded-full border">단계 {currentStep + 1}/10</span>
             </div>
             <Wizard steps={['상담', '1차', '2차', '3차', '데모', '계약', '납품', '검수', '결제', '완료']} currentStep={currentStep} onStepClick={(idx) => { setCurrentStep(idx); setEditingRecord(p => p ? ({ ...p, currentStep: idx }) : null); }} />
-            <div className="mt-6 mb-10">
+            <div className="mt-6 mb-20 space-y-6">
+              {/* 상단 저장 버튼 (sticky) */}
+              <div className="flex justify-end sticky top-16 z-40 py-2">
+                <button
+                  onClick={() => handleManualSave()}
+                  disabled={isSaving}
+                  className={`px-10 py-4 rounded-2xl font-black text-white shadow-2xl active:scale-95 transition-all text-xl flex items-center gap-2 ${isSaving ? 'bg-gray-400' : 'bg-blue-600 hover:bg-blue-700 hover:-translate-y-1'}`}
+                >
+                  {isSaving ? '⏳ 저장 중...' : '💾 지금 저장하기'}
+                </button>
+              </div>
+
               {currentStep === 0 && <MemoizedConsultationForm data={editingRecord?.consultation || {}} onChange={(d) => updateCurrentRecord('consultation', d)} />}
 
               {/* 견적 1~3차 및 계약 */}
@@ -241,7 +257,7 @@ function App() {
                 />
               ) : null}
 
-              {/* 데모 단계: 금액 삭제, 비고 추가 */}
+              {/* 데모 단계 */}
               {currentStep === 4 && (
                 <MemoizedEstimateForm
                   title="데모 정보"
@@ -275,12 +291,32 @@ function App() {
               )}
 
               {currentStep === 8 && <MemoizedPaymentForm data={editingRecord?.payment || { rows: [] }} onChange={(d) => updateCurrentRecord('payment', d)} />}
-              {currentStep === 9 && <div className="p-20 text-center bg-white rounded-xl border border-blue-200 shadow-inner"><h2 className="text-2xl font-black text-blue-800 mb-4">🚀 완료되었습니다</h2><button onClick={() => window.location.hash = '#list'} className="bg-blue-600 text-white px-8 py-3 rounded-xl font-bold">목록가기</button></div>}
+
+              {currentStep === 9 && (
+                <div className="p-20 text-center bg-white rounded-3xl border-4 border-blue-500 shadow-2xl">
+                  <h2 className="text-4xl font-black text-blue-800 mb-6">🚀 모든 작업 완료!</h2>
+                  <p className="text-gray-500 mb-10 font-bold text-lg">기초 상담부터 결제까지 모든 단계가 기록되었습니다.</p>
+                  <button onClick={() => window.location.hash = '#list'} className="bg-blue-600 text-white px-12 py-5 rounded-2xl font-black text-2xl hover:bg-blue-700 shadow-xl transition-all active:scale-95">대시보드로 돌아가기</button>
+                </div>
+              )}
+
+              {/* 하단 저장 버튼 (강조) */}
+              {currentStep < 9 && (
+                <div className="flex justify-center pt-10 border-t border-gray-200">
+                  <button
+                    onClick={() => handleManualSave()}
+                    disabled={isSaving}
+                    className={`w-full max-w-xl py-6 rounded-2xl font-black text-white shadow-2xl active:scale-95 transition-all text-2xl flex justify-center items-center gap-3 ${isSaving ? 'bg-gray-400' : 'bg-green-600 hover:bg-green-700'}`}
+                  >
+                    {isSaving ? '⏳ 서버 전송 중...' : '✔ 입력 완료 및 최종 저장'}
+                  </button>
+                </div>
+              )}
             </div>
             {currentStep < 9 && (
-              <div className="flex gap-4 sticky bottom-4">
-                <button onClick={() => { const s = currentStep - 1; if (s >= 0) { setCurrentStep(s); setEditingRecord(p => p ? ({ ...p, currentStep: s }) : null); window.scrollTo(0, 0); } }} disabled={currentStep === 0} className={`flex-1 py-4 rounded-xl font-bold shadow-lg ${currentStep === 0 ? 'bg-gray-200 text-gray-400' : 'bg-gray-600 text-white'}`}>이전</button>
-                <button onClick={() => { const s = currentStep + 1; if (s <= 9) { setCurrentStep(s); setEditingRecord(p => p ? ({ ...p, currentStep: s }) : null); window.scrollTo(0, 0); } }} className="flex-1 bg-blue-600 text-white py-4 rounded-xl font-bold shadow-lg text-lg">다음 단계 →</button>
+              <div className="flex gap-4 sticky bottom-4 z-40 bg-gray-50/80 backdrop-blur-sm p-2 rounded-2xl">
+                <button onClick={() => { const s = currentStep - 1; if (s >= 0) { setCurrentStep(s); setEditingRecord(p => p ? ({ ...p, currentStep: s }) : null); window.scrollTo(0, 0); } }} disabled={currentStep === 0} className={`flex-1 py-5 rounded-2xl font-black shadow-lg transition-all ${currentStep === 0 ? 'bg-gray-200 text-gray-400' : 'bg-gray-700 text-white hover:bg-gray-800'}`}>이전 단계</button>
+                <button onClick={() => { const s = currentStep + 1; if (s <= 9) { setCurrentStep(s); setEditingRecord(p => p ? ({ ...p, currentStep: s }) : null); window.scrollTo(0, 0); } }} className="flex-1 bg-blue-600 text-white py-5 rounded-2xl font-black shadow-lg text-xl hover:bg-blue-700 active:scale-95">다음 단계 →</button>
               </div>
             )}
           </div>

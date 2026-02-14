@@ -1,48 +1,43 @@
-import React, { useState, useEffect, useCallback, memo } from 'react';
+import React, { useState, useEffect, memo } from 'react';
 
 const DeliveryInspectionForm = ({ title, data, onChange, onCopyPrevious, mode = 'delivery' }) => {
-    const [localData, setLocalData] = useState(data);
+    const [localData, setLocalData] = useState(data || { rows: [], date: '' });
 
     useEffect(() => {
-        setLocalData(data);
-    }, [data.id]);
+        if (JSON.stringify(data) !== JSON.stringify(localData)) {
+            setLocalData(data);
+        }
+    }, [data]);
 
-    const handleChange = useCallback((index, field, value) => {
-        setLocalData(prev => {
-            const currentRows = prev.rows || [];
-            const newRows = [...currentRows];
-            newRows[index] = { ...newRows[index], [field]: value };
-            return { ...prev, rows: newRows };
-        });
-    }, []);
+    const handleChange = (index, field, value) => {
+        const currentRows = localData.rows || [];
+        const newRows = [...currentRows];
+        newRows[index] = { ...newRows[index], [field]: value };
+        const newData = { ...localData, rows: newRows };
+        setLocalData(newData);
+        onChange(newData);
+    };
 
-    const handleDateChange = useCallback((e) => {
-        const val = e.target.value;
-        setLocalData(prev => ({ ...prev, date: val }));
-    }, []);
-
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            if (JSON.stringify(localData) !== JSON.stringify(data)) {
-                onChange(localData);
-            }
-        }, 500);
-        return () => clearTimeout(timer);
-    }, [localData, onChange, data]);
+    const handleDateChange = (e) => {
+        const newData = { ...localData, date: e.target.value };
+        setLocalData(newData);
+        onChange(newData);
+    };
 
     const rows = localData.rows || [];
+    const inputClass = "w-full border border-gray-300 rounded px-2 py-1 text-sm focus:border-blue-500 outline-none transition-all";
 
     return (
         <div className="bg-white shadow-md rounded-lg p-6 w-full max-w-5xl mx-auto border border-gray-200">
             <div className="flex justify-between items-center mb-4 border-b pb-2">
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 font-bold">
                     <h2 className="text-xl font-bold text-gray-800">{title}</h2>
                     <input
                         type="date"
                         name="date"
                         value={localData.date || new Date().toISOString().slice(0, 10)}
                         onChange={handleDateChange}
-                        className="border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-600 font-normal"
+                        className="border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-600 font-bold"
                     />
                 </div>
                 {onCopyPrevious && (
@@ -50,7 +45,7 @@ const DeliveryInspectionForm = ({ title, data, onChange, onCopyPrevious, mode = 
                         onClick={onCopyPrevious}
                         className="bg-blue-600 text-white px-3 py-1.5 rounded-md text-xs font-bold hover:bg-blue-700 transition-colors shadow-sm flex items-center gap-1"
                     >
-                        <span>📋</span> {mode === 'delivery' ? '계약 내용 가져오기' : '납품 내용 가져오기'}
+                        <span>📋</span> {mode === 'delivery' ? '계약 내용 불러오기' : '납품 내용 불러오기'}
                     </button>
                 )}
             </div>
@@ -66,16 +61,22 @@ const DeliveryInspectionForm = ({ title, data, onChange, onCopyPrevious, mode = 
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
                         {rows.length > 0 ? rows.map((row, idx) => (
-                            <tr key={idx}>
+                            <tr key={idx} className="hover:bg-gray-50 transition-colors">
                                 <td className="px-4 py-2">
-                                    <input type="text" value={row.category || ''} onChange={(e) => handleChange(idx, 'category', e.target.value)} className="w-full border rounded px-2 py-1 text-sm font-bold bg-gray-50" />
+                                    <input
+                                        type="text"
+                                        value={row.category || ''}
+                                        onChange={(e) => handleChange(idx, 'category', e.target.value)}
+                                        className={`${inputClass} font-bold bg-gray-50`}
+                                        placeholder="품목명"
+                                    />
                                 </td>
                                 <td className="px-4 py-2 text-sm">
                                     <input
                                         type="text"
                                         value={row.model || ''}
                                         onChange={(e) => handleChange(idx, 'model', e.target.value)}
-                                        className="w-full border rounded px-2 py-1 focus:border-blue-500 outline-none"
+                                        className={inputClass}
                                         placeholder="모델명"
                                     />
                                 </td>
@@ -84,7 +85,7 @@ const DeliveryInspectionForm = ({ title, data, onChange, onCopyPrevious, mode = 
                                         type="text"
                                         value={row.spec || ''}
                                         onChange={(e) => handleChange(idx, 'spec', e.target.value)}
-                                        className="w-full border rounded px-2 py-1 focus:border-blue-500 outline-none"
+                                        className={inputClass}
                                         placeholder="규격"
                                     />
                                 </td>
@@ -94,7 +95,7 @@ const DeliveryInspectionForm = ({ title, data, onChange, onCopyPrevious, mode = 
                                             type="number"
                                             value={row.qty || ''}
                                             onChange={(e) => handleChange(idx, 'qty', e.target.value)}
-                                            className="w-full border rounded px-2 py-1 text-sm text-center focus:border-blue-500 outline-none"
+                                            className={`${inputClass} text-center font-bold text-blue-600 bg-blue-50`}
                                             placeholder="0"
                                         />
                                     ) : (
@@ -102,13 +103,13 @@ const DeliveryInspectionForm = ({ title, data, onChange, onCopyPrevious, mode = 
                                             type="checkbox"
                                             checked={row.confirmed || false}
                                             onChange={(e) => handleChange(idx, 'confirmed', e.target.checked)}
-                                            className="w-6 h-6 text-blue-600 border-gray-300 rounded focus:ring-blue-500 cursor-pointer"
+                                            className="w-8 h-8 text-blue-600 border-gray-300 rounded focus:ring-blue-500 cursor-pointer transition-transform active:scale-90"
                                         />
                                     )}
                                 </td>
                             </tr>
                         )) : (
-                            <tr><td colSpan="4" className="p-10 text-center text-gray-400">데이터가 없습니다.</td></tr>
+                            <tr><td colSpan="4" className="p-10 text-center text-gray-400 font-medium italic">데이터가 없습니다. "내용 불러오기"를 클릭하세요.</td></tr>
                         )}
                     </tbody>
                 </table>
