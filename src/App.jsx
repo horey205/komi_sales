@@ -80,51 +80,84 @@ function App() {
     if (isLoggedIn) fetchRecords();
   }, [isLoggedIn]);
 
+  // 목록 보기로 전환 시 데이터 갱신
+  useEffect(() => {
+    if (view === 'list' && isLoggedIn) {
+      fetchRecords();
+    }
+  }, [view, isLoggedIn]);
+
   // 편집 데이터 동기화
   useEffect(() => {
     if (view === 'edit' && currentId && records.length > 0) {
       const found = records.find(r => String(r.id) === String(currentId));
       if (found) {
-        const d = found.data || found;
-        const sanitized = {
-          ...d,
-          id: found.id,
-          consultation: d.consultation || { clientName: '' },
-          estimate1: d.estimate1 || { items: structuredClone(defaultItems), total: 0 },
-          estimate2: d.estimate2 || { items: structuredClone(defaultItems), total: 0 },
-          estimate3: d.estimate3 || { items: structuredClone(defaultItems), total: 0 },
-          demo: d.demo || { items: structuredClone(defaultItems), total: 0 },
-          contract: d.contract || { items: structuredClone(defaultItems), total: 0 },
-          delivery: d.delivery || { rows: structuredClone(defaultRows) },
-          inspection: d.inspection || { rows: structuredClone(defaultRows) },
-          payment: d.payment || { rows: [] }
-        };
-        setEditingRecord(sanitized);
-        setCurrentStep(d.currentStep || STEPS.CONSULTATION);
+        // 이미 편집 중인 데이터가 있고, ID가 같다면 덮어쓰지 않음 (로컬 상태 우선)
+        // 단, 처음 진입(editingRecord가 null)이거나 다른 ID로 전환된 경우는 업데이트
+        setEditingRecord(prev => {
+          if (prev && String(prev.id) === String(currentId)) return prev;
+
+          const d = found.data || found;
+          const sanitized = {
+            ...d,
+            id: found.id,
+            consultation: d.consultation || { clientName: '' },
+            estimate1: d.estimate1 || { items: structuredClone(defaultItems), total: 0 },
+            estimate2: d.estimate2 || { items: structuredClone(defaultItems), total: 0 },
+            estimate3: d.estimate3 || { items: structuredClone(defaultItems), total: 0 },
+            demo: d.demo || { items: structuredClone(defaultItems), total: 0 },
+            contract: d.contract || { items: structuredClone(defaultItems), total: 0 },
+            delivery: d.delivery || { rows: structuredClone(defaultRows) },
+            inspection: d.inspection || { rows: structuredClone(defaultRows) },
+            payment: d.payment || { rows: [] }
+          };
+          // update currentStep state as well
+          setCurrentStep(d.currentStep || STEPS.CONSULTATION);
+          return sanitized;
+        });
       }
     }
-  }, [view, currentId, records]);
+  }, [view, currentId, records]); // Note: setCurrentStep logic inside might be tricky if not careful
 
   const updateCurrentRecord = useCallback((section, data) => {
     setEditingRecord(prev => prev ? ({ ...prev, [section]: data }) : null);
   }, []);
 
-  const handleManualSave = async () => {
+  // 통합 저장 함수 (Auto/Manual)
+  const saveData = async (stepOverride = null, silent = false) => {
     if (!editingRecord) return;
     setIsSaving(true);
-    const recordToSave = { ...editingRecord, currentStep };
+
+    // 단계 변경 시에는 변경된 단계로 저장, 아니면 현재 단계
+    const stepToSave = stepOverride !== null ? stepOverride : currentStep;
+    const recordToSave = { ...editingRecord, currentStep: stepToSave };
+
     const { error } = await supabase.from('sales').upsert({
       id: editingRecord.id,
       client_name: editingRecord.consultation?.clientName || '미지정',
       data: recordToSave,
       updated_at: new Date().toISOString()
     });
-    if (error) alert('저장 실패: ' + error.message);
-    else {
-      await fetchRecords();
-      alert('기록이 서버에 안전하게 저장되었습니다.');
+
+    if (error) {
+      if (!silent) alert('저장 실패: ' + error.message);
+      console.error('Save error:', error);
+    } else {
+      if (!silent) {
+        await fetchRecords(); // 수동 저장 시에는 목록 갱신
+        alert('기록이 서버에 안전하게 저장되었습니다.');
+      }
+      // 자동 저장일 때는 fetchRecords 호출하지 않음 (편집 상태 유지 및 불필요한 리렌더링 방지)
     }
     setIsSaving(false);
+  };
+
+  const handleManualSave = () => saveData(null, false);
+
+  const handleStepChange = async (newStep) => {
+    setCurrentStep(newStep);
+    window.scrollTo(0, 0);
+    await saveData(newStep, true);
   };
 
   const handleCopyPrevious = useCallback(() => {
@@ -208,13 +241,13 @@ function App() {
             if (!error) { fetchRecords(); window.location.hash = `#edit/${newId}`; }
           }} onDelete={async (id) => { if (window.confirm('정말 삭제하시겠습니까?')) { await supabase.from('sales').delete().eq('id', id); fetchRecords(); } }} userRole={userRole} />
         ) : (
-          <div key={currentId + currentStep}>
+          <div key={currentId}>
             <div className="mb-6 flex justify-between items-center bg-blue-600 p-5 rounded-3xl shadow-xl border-4 border-white">
               <span className="font-black text-white text-xl">🏢 {editingRecord?.consultation?.clientName || '업체명 미입력'}</span>
               <span className="text-xs text-blue-600 font-black bg-white px-4 py-2 rounded-full shadow-inner">{titles[currentStep]} ({currentStep + 1}/10)</span>
             </div>
 
-            <Wizard steps={['상담', '1차', '2차', '3차', '데모', '계약', '납품', '검수', '결제', '완료']} currentStep={currentStep} onStepClick={(idx) => { setCurrentStep(idx); }} />
+            <Wizard steps={['상담', '1차', '2차', '3차', '데모', '계약', '납품', '검수', '결제', '완료']} currentStep={currentStep} onStepClick={handleStepChange} />
 
             <div className="mt-8 space-y-8 pb-32">
               {/* 상단 통합 저장 버튼 */}
@@ -264,11 +297,11 @@ function App() {
               )}
             </div>
 
-            {/* 스탭 이동 내비게이션 */}
+            {/* 스탭 이동 내비게이션 (자동 저장 포함) */}
             {currentStep < STEPS.COMPLETE && (
               <div className="fixed bottom-6 left-1/2 -translate-x-1/2 flex gap-4 z-50 w-full max-w-4xl px-4">
-                <button onClick={() => { const s = currentStep - 1; if (s >= 0) { setCurrentStep(s); window.scrollTo(0, 0); } }} disabled={currentStep === 0} className={`flex-1 py-5 rounded-2xl font-black shadow-2xl transition-all backdrop-blur-md border-2 ${currentStep === 0 ? 'bg-white/50 text-gray-300 border-gray-100' : 'bg-gray-800/90 text-white border-gray-700 hover:bg-gray-900'}`}>이전 단계</button>
-                <button onClick={() => { const s = currentStep + 1; if (s <= 9) { setCurrentStep(s); window.scrollTo(0, 0); } }} className="flex-1 bg-blue-600/90 text-white py-5 rounded-2xl font-black shadow-2xl text-xl backdrop-blur-md border-2 border-blue-400 hover:bg-blue-700">다음 단계 →</button>
+                <button onClick={() => { const s = currentStep - 1; if (s >= 0) handleStepChange(s); }} disabled={currentStep === 0} className={`flex-1 py-5 rounded-2xl font-black shadow-2xl transition-all backdrop-blur-md border-2 ${currentStep === 0 ? 'bg-white/50 text-gray-300 border-gray-100' : 'bg-gray-800/90 text-white border-gray-700 hover:bg-gray-900'}`}>이전 단계 (저장)</button>
+                <button onClick={() => { const s = currentStep + 1; if (s <= 9) handleStepChange(s); }} className="flex-1 bg-blue-600/90 text-white py-5 rounded-2xl font-black shadow-2xl text-xl backdrop-blur-md border-2 border-blue-400 hover:bg-blue-700">다음 단계 → (자동저장)</button>
               </div>
             )}
           </div>

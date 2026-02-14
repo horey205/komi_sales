@@ -1,6 +1,6 @@
 import * as XLSX from 'xlsx';
 
-export const exportToExcel = (records) => {
+export const exportToExcel = (records, filename = null) => {
     const steps = ['상담', '견적1차', '견적2차', '견적3차', '데모', '계약', '납품', '검수', '결제', '완료'];
 
     const formatItems = (items) => {
@@ -24,6 +24,13 @@ export const exportToExcel = (records) => {
         const delivery = d.delivery || {};
         const inspection = d.inspection || {};
         const payment = d.payment || {};
+
+        let paymentInfo = '';
+        if (payment.rows && payment.rows.length > 0) {
+            paymentInfo = payment.rows.map(p =>
+                `[${p.date}] ${p.item} (${p.total.toLocaleString()}원) - ${p.status}`
+            ).join('\n');
+        }
 
         return {
             'ID': record.id,
@@ -71,7 +78,7 @@ export const exportToExcel = (records) => {
             '검수_현황': formatRows(inspection.rows),
 
             // 결제
-            '결제_정보': payment.date ? `${payment.date} / ${payment.status}` : ''
+            '결제_정보': paymentInfo
         };
     });
 
@@ -87,7 +94,8 @@ export const exportToExcel = (records) => {
     worksheet['!cols'] = wscols;
 
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "전체영업데이터");
+    XLSX.utils.book_append_sheet(workbook, worksheet, "영업데이터");
 
-    XLSX.writeFile(workbook, `SalesDB_Full_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    const finalName = filename || `SalesDB_Full_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    XLSX.writeFile(workbook, finalName);
 };

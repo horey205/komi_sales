@@ -87,21 +87,35 @@ const SalesList = ({ records, onSelect, onDelete, onCreate, userRole }) => {
                                         {record.updated_at ? new Date(record.updated_at).toLocaleString() : '-'}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                        {userRole === 'admin' ? (
+                                        <div className="flex justify-end gap-2">
                                             <button
                                                 onClick={(e) => {
                                                     e.stopPropagation();
-                                                    // Explicitly call onDelete
-                                                    onDelete(record.id);
+                                                    const clientName = record.client_name || record.data?.consultation?.clientName || 'NoName';
+                                                    const safeName = clientName.replace(/[\\/:*?"<>|]/g, '_');
+                                                    const date = new Date().toISOString().slice(0, 10);
+                                                    exportToExcel([record], `Sales_${safeName}_${date}.xlsx`);
                                                 }}
-                                                className="text-red-600 hover:text-red-900 bg-red-50 p-2 rounded-full hover:bg-red-100 transition-colors"
-                                                title="삭제"
+                                                className="text-green-600 hover:text-green-900 bg-green-50 p-2 rounded-full hover:bg-green-100 transition-colors"
+                                                title="개별 엑셀 다운로드"
                                             >
-                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-4v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
                                             </button>
-                                        ) : (
-                                            <span className="text-gray-300 text-xs cursor-not-allowed" title="삭제 권한 없음">삭제불가</span>
-                                        )}
+                                            {userRole === 'admin' ? (
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        onDelete(record.id);
+                                                    }}
+                                                    className="text-red-600 hover:text-red-900 bg-red-50 p-2 rounded-full hover:bg-red-100 transition-colors"
+                                                    title="삭제"
+                                                >
+                                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-4v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                                </button>
+                                            ) : (
+                                                <span className="text-gray-300 text-xs self-center cursor-not-allowed" title="삭제 권한 없음">삭제불가</span>
+                                            )}
+                                        </div>
                                     </td>
                                 </tr>
                             ))
