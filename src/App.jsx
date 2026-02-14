@@ -14,18 +14,20 @@ const MemoizedDeliveryInspectionForm = memo(DeliveryInspectionForm);
 const MemoizedPaymentForm = memo(PaymentForm);
 
 // 기본 품목 양식
+// 기본 품목 리스트 (카메라, 렌즈, 삼각대, 조명, 컴퓨터, 액세서리1, 액세서리2, 액세서리3, 액세서리4)
 const defaultItems = [
-  { name: '본체', model: '', spec: '', price: '' },
-  { name: 'S/W', model: '', spec: '', price: '' },
-  { name: '소모품', model: '', spec: '', price: '' },
-  { name: '기타', model: '', spec: '', price: '' }
+  { name: '카메라', model: '', spec: '', price: '', currency: 'KRW' },
+  { name: '렌즈', model: '', spec: '', price: '', currency: 'KRW' },
+  { name: '삼각대', model: '', spec: '', price: '', currency: 'KRW' },
+  { name: '조명', model: '', spec: '', price: '', currency: 'KRW' },
+  { name: '컴퓨터', model: '', spec: '', price: '', currency: 'KRW' },
+  { name: '액세서리1', model: '', spec: '', price: '', currency: 'KRW' },
+  { name: '액세서리2', model: '', spec: '', price: '', currency: 'KRW' },
+  { name: '액세서리3', model: '', spec: '', price: '', currency: 'KRW' },
+  { name: '액세서리4', model: '', spec: '', price: '', currency: 'KRW' }
 ];
 
-const defaultRows = [
-  { category: '본체', model: '', spec: '', confirmed: false },
-  { category: 'S/W', model: '', spec: '', confirmed: false },
-  { category: '소모품', model: '', spec: '', confirmed: false }
-];
+const defaultRows = defaultItems.map(item => ({ category: item.name, model: '', spec: '', confirmed: false }));
 
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -178,7 +180,7 @@ function App() {
         {view === 'list' ? (
           <SalesList records={records} onSelect={(id) => window.location.hash = `#edit/${id}`} onCreate={async () => {
             const newId = Date.now().toString();
-            const newRecord = { id: newId, currentStep: 0, updatedAt: new Date().toISOString(), consultation: { clientName: '' }, estimate1: { items: defaultItems, total: 0 }, estimate2: { items: defaultItems, total: 0 }, estimate3: { items: defaultItems, total: 0 }, demo: { items: defaultItems, total: 0 }, contract: { items: defaultItems, total: 0 }, delivery: { rows: defaultRows }, inspection: { rows: defaultRows }, payment: { rows: [] } };
+            const newRecord = { id: newId, currentStep: 0, updatedAt: new Date().toISOString(), consultation: { clientName: '', dept: '', position: '', manager: '', phone1: '', phone2: '', email: '', address: '', content: '' }, estimate1: { items: defaultItems, total: 0 }, estimate2: { items: defaultItems, total: 0 }, estimate3: { items: defaultItems, total: 0 }, demo: { items: defaultItems, total: 0 }, contract: { items: defaultItems, total: 0 }, delivery: { rows: defaultRows }, inspection: { rows: defaultRows }, payment: { rows: [] } };
             await supabase.from('sales').insert({ id: newId, client_name: '신규 업체', data: newRecord });
             fetchRecords();
             window.location.hash = `#edit/${newId}`;
