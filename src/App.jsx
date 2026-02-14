@@ -28,6 +28,19 @@ const defaultItems = [
 
 const defaultRows = defaultItems.map(item => ({ category: item.name, model: '', spec: '', qty: 0, confirmed: false }));
 
+const STEPS = {
+  CONSULTATION: 0,
+  ESTIMATE_1: 1,
+  ESTIMATE_2: 2,
+  ESTIMATE_3: 3,
+  DEMO: 4,
+  CONTRACT: 5,
+  DELIVERY: 6,
+  INSPECTION: 7,
+  PAYMENT: 8,
+  COMPLETE: 9
+};
+
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(sessionStorage.getItem('isLoggedIn') === 'true');
   const [userRole, setUserRole] = useState(sessionStorage.getItem('userRole') || 'viewer');
@@ -77,17 +90,17 @@ function App() {
           ...d,
           id: found.id,
           consultation: d.consultation || { clientName: '' },
-          estimate1: d.estimate1 || { items: JSON.parse(JSON.stringify(defaultItems)), total: 0 },
-          estimate2: d.estimate2 || { items: JSON.parse(JSON.stringify(defaultItems)), total: 0 },
-          estimate3: d.estimate3 || { items: JSON.parse(JSON.stringify(defaultItems)), total: 0 },
-          demo: d.demo || { items: JSON.parse(JSON.stringify(defaultItems)), total: 0 },
-          contract: d.contract || { items: JSON.parse(JSON.stringify(defaultItems)), total: 0 },
-          delivery: d.delivery || { rows: JSON.parse(JSON.stringify(defaultRows)) },
-          inspection: d.inspection || { rows: JSON.parse(JSON.stringify(defaultRows)) },
+          estimate1: d.estimate1 || { items: structuredClone(defaultItems), total: 0 },
+          estimate2: d.estimate2 || { items: structuredClone(defaultItems), total: 0 },
+          estimate3: d.estimate3 || { items: structuredClone(defaultItems), total: 0 },
+          demo: d.demo || { items: structuredClone(defaultItems), total: 0 },
+          contract: d.contract || { items: structuredClone(defaultItems), total: 0 },
+          delivery: d.delivery || { rows: structuredClone(defaultRows) },
+          inspection: d.inspection || { rows: structuredClone(defaultRows) },
           payment: d.payment || { rows: [] }
         };
         setEditingRecord(sanitized);
-        setCurrentStep(d.currentStep || 0);
+        setCurrentStep(d.currentStep || STEPS.CONSULTATION);
       }
     }
   }, [view, currentId, records]);
@@ -120,10 +133,10 @@ function App() {
     let prevSection = '';
     let currentSection = steps[currentStep];
 
-    if (currentStep === 5) prevSection = 'estimate1'; // 계약은 보통 1차 견적에서 복사
-    else if (currentStep === 6) prevSection = 'contract';
-    else if (currentStep === 7) prevSection = 'delivery';
-    else if (currentStep > 0 && currentStep <= 4) prevSection = steps[currentStep - 1];
+    if (currentStep === STEPS.CONTRACT) prevSection = 'estimate1'; // 계약은 보통 1차 견적에서 복사
+    else if (currentStep === STEPS.DELIVERY) prevSection = 'contract';
+    else if (currentStep === STEPS.INSPECTION) prevSection = 'delivery';
+    else if (currentStep > STEPS.CONSULTATION && currentStep <= STEPS.DEMO) prevSection = steps[currentStep - 1];
 
     if (prevSection && currentSection) {
       const prevData = editingRecord[prevSection];
@@ -134,7 +147,7 @@ function App() {
         } else if (prevData.rows && currentSection === 'inspection') {
           copiedContent = { rows: prevData.rows.map(row => ({ ...row, confirmed: false })), date: new Date().toISOString().slice(0, 10) };
         } else {
-          copiedContent = JSON.parse(JSON.stringify(prevData));
+          copiedContent = structuredClone(prevData);
         }
         setEditingRecord(prev => ({ ...prev, [currentSection]: copiedContent }));
       }
@@ -179,16 +192,16 @@ function App() {
             const newId = Date.now().toString();
             const newRecord = {
               id: newId,
-              currentStep: 0,
+              currentStep: STEPS.CONSULTATION,
               updatedAt: new Date().toISOString(),
               consultation: { clientName: '', dept: '', position: '', manager: '', phone1: '', phone2: '', email: '', address: '', content: '' },
-              estimate1: { items: JSON.parse(JSON.stringify(defaultItems)), total: 0, currency: 'KRW' },
-              estimate2: { items: JSON.parse(JSON.stringify(defaultItems)), total: 0, currency: 'KRW' },
-              estimate3: { items: JSON.parse(JSON.stringify(defaultItems)), total: 0, currency: 'KRW' },
-              demo: { items: JSON.parse(JSON.stringify(defaultItems)), total: 0 },
-              contract: { items: JSON.parse(JSON.stringify(defaultItems)), total: 0, currency: 'KRW' },
-              delivery: { rows: JSON.parse(JSON.stringify(defaultRows)) },
-              inspection: { rows: JSON.parse(JSON.stringify(defaultRows)) },
+              estimate1: { items: structuredClone(defaultItems), total: 0, currency: 'KRW' },
+              estimate2: { items: structuredClone(defaultItems), total: 0, currency: 'KRW' },
+              estimate3: { items: structuredClone(defaultItems), total: 0, currency: 'KRW' },
+              demo: { items: structuredClone(defaultItems), total: 0 },
+              contract: { items: structuredClone(defaultItems), total: 0, currency: 'KRW' },
+              delivery: { rows: structuredClone(defaultRows) },
+              inspection: { rows: structuredClone(defaultRows) },
               payment: { rows: [] }
             };
             const { error } = await supabase.from('sales').insert({ id: newId, client_name: '신규 업체(입력중)', data: newRecord });
@@ -215,8 +228,8 @@ function App() {
                 </button>
               </div>
 
-              {currentStep === 0 && <MemoizedConsultationForm data={editingRecord?.consultation} onChange={(d) => updateCurrentRecord('consultation', d)} />}
-              {(currentStep >= 1 && currentStep <= 3) || currentStep === 5 ? (
+              {currentStep === STEPS.CONSULTATION && <MemoizedConsultationForm data={editingRecord?.consultation} onChange={(d) => updateCurrentRecord('consultation', d)} />}
+              {(currentStep >= STEPS.ESTIMATE_1 && currentStep <= STEPS.ESTIMATE_3) || currentStep === STEPS.CONTRACT ? (
                 <MemoizedEstimateForm
                   title={titles[currentStep]}
                   data={editingRecord?.[sectionMap[currentStep]]}
@@ -224,12 +237,12 @@ function App() {
                   onCopyPrevious={handleCopyPrevious}
                 />
               ) : null}
-              {currentStep === 4 && <MemoizedEstimateForm title="데모 협의" isDemo={true} data={editingRecord?.demo} onChange={(d) => updateCurrentRecord('demo', d)} onCopyPrevious={handleCopyPrevious} />}
-              {currentStep === 6 && <MemoizedDeliveryInspectionForm title="제품 납품" mode="delivery" data={editingRecord?.delivery} onChange={(d) => updateCurrentRecord('delivery', d)} onCopyPrevious={handleCopyPrevious} />}
-              {currentStep === 7 && <MemoizedDeliveryInspectionForm title="최종 검수" mode="inspection" data={editingRecord?.inspection} onChange={(d) => updateCurrentRecord('inspection', d)} onCopyPrevious={handleCopyPrevious} />}
-              {currentStep === 8 && <MemoizedPaymentForm data={editingRecord?.payment} onChange={(d) => updateCurrentRecord('payment', d)} />}
+              {currentStep === STEPS.DEMO && <MemoizedEstimateForm title="데모 협의" isDemo={true} data={editingRecord?.demo} onChange={(d) => updateCurrentRecord('demo', d)} onCopyPrevious={handleCopyPrevious} />}
+              {currentStep === STEPS.DELIVERY && <MemoizedDeliveryInspectionForm title="제품 납품" mode="delivery" data={editingRecord?.delivery} onChange={(d) => updateCurrentRecord('delivery', d)} onCopyPrevious={handleCopyPrevious} />}
+              {currentStep === STEPS.INSPECTION && <MemoizedDeliveryInspectionForm title="최종 검수" mode="inspection" data={editingRecord?.inspection} onChange={(d) => updateCurrentRecord('inspection', d)} onCopyPrevious={handleCopyPrevious} />}
+              {currentStep === STEPS.PAYMENT && <MemoizedPaymentForm data={editingRecord?.payment} onChange={(d) => updateCurrentRecord('payment', d)} />}
 
-              {currentStep === 9 && (
+              {currentStep === STEPS.COMPLETE && (
                 <div className="p-20 text-center bg-white rounded-3xl border-4 border-dashed border-blue-200 shadow-2xl">
                   <h2 className="text-5xl font-black text-blue-800 mb-6 italic tracking-tighter">MISSION COMPLETE!</h2>
                   <p className="text-gray-400 mb-10 font-bold text-lg">모든 프로세스가 종료되었습니다. 데이터를 최종 확인 후 목록으로 돌아가세요.</p>
@@ -238,7 +251,7 @@ function App() {
               )}
 
               {/* 하단 통합 저장 버튼 (플로팅 고정 효과를 위해 위에 패딩 추가) */}
-              {currentStep < 9 && (
+              {currentStep < STEPS.COMPLETE && (
                 <div className="flex justify-center pt-10 border-t-4 border-gray-100 mt-10">
                   <button
                     onClick={handleManualSave}
@@ -252,7 +265,7 @@ function App() {
             </div>
 
             {/* 스탭 이동 내비게이션 */}
-            {currentStep < 9 && (
+            {currentStep < STEPS.COMPLETE && (
               <div className="fixed bottom-6 left-1/2 -translate-x-1/2 flex gap-4 z-50 w-full max-w-4xl px-4">
                 <button onClick={() => { const s = currentStep - 1; if (s >= 0) { setCurrentStep(s); window.scrollTo(0, 0); } }} disabled={currentStep === 0} className={`flex-1 py-5 rounded-2xl font-black shadow-2xl transition-all backdrop-blur-md border-2 ${currentStep === 0 ? 'bg-white/50 text-gray-300 border-gray-100' : 'bg-gray-800/90 text-white border-gray-700 hover:bg-gray-900'}`}>이전 단계</button>
                 <button onClick={() => { const s = currentStep + 1; if (s <= 9) { setCurrentStep(s); window.scrollTo(0, 0); } }} className="flex-1 bg-blue-600/90 text-white py-5 rounded-2xl font-black shadow-2xl text-xl backdrop-blur-md border-2 border-blue-400 hover:bg-blue-700">다음 단계 →</button>
