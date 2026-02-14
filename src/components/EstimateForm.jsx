@@ -44,6 +44,13 @@ const EstimateForm = ({ title, data, onChange, onCopyPrevious }) => {
             <div className="flex justify-between items-center mb-4 border-b pb-2 gap-2 flex-wrap">
                 <div className="flex items-center gap-3">
                     <h2 className="text-xl font-bold text-gray-800">{title}</h2>
+                    <input
+                        type="date"
+                        name="date"
+                        value={data.date || new Date().toISOString().slice(0, 10)}
+                        onChange={(e) => onChange({ ...data, date: e.target.value })}
+                        className="border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-600 font-normal"
+                    />
                     {onCopyPrevious && (
                         <button
                             onClick={onCopyPrevious}

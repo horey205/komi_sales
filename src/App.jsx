@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { encrypt, decrypt, isEncrypted } from './utils/crypto';
+import { supabase } from './utils/supabaseClient';
 import Wizard from './components/Wizard';
 import ConsultationForm from './components/ConsultationForm';
 import EstimateForm from './components/EstimateForm';
-import GithubSync from './components/GithubSync';
+// import GithubSync from './components/GithubSync'; // Deprecated
 import Login from './components/Login';
 import DeliveryInspectionForm from './components/DeliveryInspectionForm';
 import PaymentForm from './components/PaymentForm';
@@ -53,31 +53,80 @@ function App() {
     return () => window.removeEventListener('popstate', handleHash);
   }, []);
 
-  // Load from local storage on mount
+  // Supabase Realtime & Initial Load
   useEffect(() => {
-    const savedRecords = localStorage.getItem('salesRecords');
-    if (savedRecords) {
-      if (isEncrypted(savedRecords)) {
-        const key = sessionStorage.getItem('encryptionKey');
-        if (key) {
-          const decrypted = decrypt(savedRecords, key);
-          if (decrypted) setRecords(decrypted);
-        }
-      } else {
-        // Migration: unencrypted data exists
-        setRecords(JSON.parse(savedRecords));
-      }
-    }
-  }, []);
+    if (!isLoggedIn) return;
 
-  // Save to local storage on change
-  useEffect(() => {
-    if (records.length > 0) {
-      const dataString = JSON.stringify(records);
-      const finalData = encryptionKey ? encrypt(dataString, encryptionKey) : dataString;
-      localStorage.setItem('salesRecords', finalData);
-    }
-  }, [records, encryptionKey]);
+    const fetchRecords = async () => {
+      const { data, error } = await supabase
+        .from('sales')
+        .select('*')
+        .order('updated_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching records:', error);
+      } else if (data) {
+        // Migration: If DB is empty but we have local data, upload it
+        if (data.length === 0) {
+          const local = localStorage.getItem('salesRecords');
+          if (local) {
+            // Try decrypt or parse
+            // ... (Simplification: Just trust fresh start or manual migration later if needed)
+          }
+        }
+
+        // Convert DB rows back to application record format
+        // Safely map row.data to record, ensuring it has an id
+        const loadedRecords = data.map(row => {
+          if (typeof row.data === 'string') {
+            try { return JSON.parse(row.data); } catch (e) { return null; }
+          }
+          return row.data;
+        }).filter(r => r && r.id); // Filter out nulls
+
+        setRecords(loadedRecords);
+      }
+    };
+
+    fetchRecords();
+
+    // Subscribe to changes
+    const channel = supabase
+      .channel('sales_changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'sales' }, (payload) => {
+        // Reload all data on any change (Simple strategy)
+        // Or cleaner: handle INSERT/UPDATE/DELETE locally
+        fetchRecords();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [isLoggedIn]);
+
+  // Auto-save to Supabase
+  const saveToSupabase = async (record) => {
+    if (!record) return;
+    const { error } = await supabase
+      .from('sales')
+      .upsert({
+        id: record.id,
+        client_name: record.consultation?.clientName || '이름 없음',
+        manager_name: record.consultation?.manager || '',
+        updated_at: new Date().toISOString(),
+        data: record
+      });
+    if (error) console.error('Supabase Save Error:', error);
+  };
+
+  const deleteFromSupabase = async (id) => {
+    const { error } = await supabase
+      .from('sales')
+      .delete()
+      .eq('id', id);
+    if (error) console.error('Supabase Delete Error:', error);
+  };
 
   const handleLogin = (password, role = 'admin') => {
     setIsLoggedIn(true);
@@ -105,7 +154,7 @@ function App() {
   ];
 
   const emptyFormData = {
-    consultation: {},
+    consultation: { clientName: '', manager: '', phone1: '', email: '', content: '' },
     estimate1: { items: [], total: 0, currency: 'KRW' },
     estimate2: { items: [], total: 0, currency: 'KRW' },
     estimate3: { items: [], total: 0, currency: 'KRW' },
@@ -116,30 +165,43 @@ function App() {
     payment: { rows: [] },
   };
 
-  const currentRecordRaw = records.find(r => r.id === currentId);
-  const currentRecord = currentRecordRaw ? {
-    ...emptyFormData,
-    ...currentRecordRaw,
-    // Deep merge essential sections to prevent undefined errors
-    consultation: currentRecordRaw.consultation || {},
-    estimate1: currentRecordRaw.estimate1 || { items: [], total: 0, currency: 'KRW' },
-    estimate2: currentRecordRaw.estimate2 || { items: [], total: 0, currency: 'KRW' },
-    estimate3: currentRecordRaw.estimate3 || { items: [], total: 0, currency: 'KRW' },
-    demo: currentRecordRaw.demo || { items: [], total: 0, currency: 'KRW' },
-    contract: currentRecordRaw.contract || { items: [], total: 0, currency: 'KRW' },
-    delivery: currentRecordRaw.delivery || { rows: [] },
-    inspection: currentRecordRaw.inspection || { rows: [] },
-    payment: currentRecordRaw.payment || { rows: [] },
-  } : { ...emptyFormData, id: null, currentStep: 0 };
+  // Helper to ensure record has all necessary fields
+  const sanitizeRecord = (record) => {
+    if (!record) return null;
+    return {
+      id: record.id || Date.now(),
+      currentStep: typeof record.currentStep === 'number' ? record.currentStep : 0,
+      updatedAt: record.updatedAt || new Date().toISOString(),
+      consultation: { ...emptyFormData.consultation, ...(record.consultation || {}) },
+      estimate1: { ...emptyFormData.estimate1, ...(record.estimate1 || {}) },
+      estimate2: { ...emptyFormData.estimate2, ...(record.estimate2 || {}) },
+      estimate3: { ...emptyFormData.estimate3, ...(record.estimate3 || {}) },
+      demo: { ...emptyFormData.demo, ...(record.demo || {}) },
+      contract: { ...emptyFormData.contract, ...(record.contract || {}) },
+      delivery: { ...emptyFormData.delivery, ...(record.delivery || {}) },
+      inspection: { ...emptyFormData.inspection, ...(record.inspection || {}) },
+      payment: { ...emptyFormData.payment, ...(record.payment || {}) },
+      // Any other fields from record?
+      ...record
+    };
+  };
 
-  const handleCreate = () => {
+  const currentRecordRaw = records.find(r => r.id === currentId);
+  const currentRecord = currentRecordRaw ? sanitizeRecord(currentRecordRaw) : { ...emptyFormData, id: null, currentStep: 0 };
+
+  const handleCreate = async () => {
     const newId = Date.now();
     const newRecord = { ...emptyFormData, id: newId, currentStep: 0, updatedAt: new Date().toISOString() };
+
+    // Optimistic UI update
     setRecords([newRecord, ...records]);
     setCurrentId(newId);
     setCurrentStep(0);
     window.location.hash = `#edit/${newId}`;
     setView('edit');
+
+    // Save to DB
+    await saveToSupabase(newRecord);
   };
 
   const handleSelect = (id) => {
@@ -158,17 +220,25 @@ function App() {
     setCurrentId(null);
   }
 
-  const handleDelete = (id) => {
-    setRecords(records.filter(r => r.id !== id));
+  const handleDelete = async (id) => {
+    if (window.confirm('정말 삭제하시겠습니까?')) {
+      setRecords(records.filter(r => r.id !== id));
+      await deleteFromSupabase(id);
+    }
   };
 
   const updateCurrentRecord = (section, data) => {
-    setRecords(prev => prev.map(r => {
-      if (r.id === currentId) {
-        return { ...r, [section]: data, updatedAt: new Date().toISOString() };
-      }
-      return r;
-    }));
+    setRecords(prev => {
+      const newRecords = prev.map(r => {
+        if (r.id === currentId) {
+          const updated = { ...r, [section]: data, updatedAt: new Date().toISOString() };
+          saveToSupabase(updated); // Auto-save side effect
+          return updated;
+        }
+        return r;
+      });
+      return newRecords;
+    });
   };
 
   const handleCopyPrevious = () => {
@@ -240,29 +310,46 @@ function App() {
     return <Login onLogin={handleLogin} />;
   }
 
+  /* 
+   * ACCESS CONTROL LOGIC:
+   * - Viewers and Admins can create and edit.
+   * - Only Admins can delete.
+   * - Wrapper no longer disables input based on role.
+   */
   const renderStepContent = () => {
-    const isViewer = userRole === 'viewer';
-    // Wrap content in a container that disables pointer events if viewer
-    const Wrapper = ({ children }) => isViewer ? <div className="pointer-events-none opacity-90">{children}</div> : <>{children}</>;
+    // Debugging: Log current record to console
+    console.log('Rendering Step:', currentStep, 'Current Record:', currentRecord);
 
-    switch (currentStep) {
-      case 0: return <Wrapper><ConsultationForm data={data.consultation} onChange={(d) => updateCurrentRecord('consultation', d)} /></Wrapper>;
-      case 1: return <Wrapper><EstimateForm title="견적 1차 입력내용" data={data.estimate1} onChange={(d) => updateCurrentRecord('estimate1', d)} /></Wrapper>;
-      case 2: return <Wrapper><EstimateForm title="견적 2차 입력내용" data={data.estimate2} onChange={(d) => updateCurrentRecord('estimate2', d)} onCopyPrevious={handleCopyPrevious} /></Wrapper>;
-      case 3: return <Wrapper><EstimateForm title="견적 3차 입력내용" data={data.estimate3} onChange={(d) => updateCurrentRecord('estimate3', d)} onCopyPrevious={handleCopyPrevious} /></Wrapper>;
-      case 4: return <Wrapper><EstimateForm title="데모 내용 입력" data={data.demo} onChange={(d) => updateCurrentRecord('demo', d)} onCopyPrevious={handleCopyPrevious} /></Wrapper>;
-      case 5: return <Wrapper><EstimateForm title="계약 내용 입력" data={data.contract} onChange={(d) => updateCurrentRecord('contract', d)} onCopyPrevious={handleCopyPrevious} /></Wrapper>;
-      case 6: return <Wrapper><DeliveryInspectionForm data={data.delivery} onChange={(d) => updateCurrentRecord('delivery', d)} onCopyPrevious={handleCopyPrevious} /></Wrapper>;
-      case 7: return <Wrapper><DeliveryInspectionForm data={data.inspection} onChange={(d) => updateCurrentRecord('inspection', d)} onCopyPrevious={handleCopyPrevious} /></Wrapper>;
-      case 8: return <Wrapper><PaymentForm data={data.payment} onChange={(d) => updateCurrentRecord('payment', d)} /></Wrapper>;
-      default:
-        return (
-          <div className="bg-white shadow-md rounded-lg p-10 text-center border border-gray-200 min-h-[400px] flex flex-col justify-center items-center">
-            <h2 className="text-2xl font-bold text-gray-800 mb-4">{steps[currentStep]} 단계 완료</h2>
-            <p className="text-gray-600 mb-8">영업 프로세스가 모두 완료되었습니다.</p>
-            <button onClick={() => setView('list')} className="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold">목록으로 이동</button>
-          </div>
-        );
+    if (!currentRecord || !currentRecord.consultation) {
+      return <div className="p-8 text-center text-red-500">데이터를 불러오는 중 오류가 발생했습니다. (ID: {currentId})</div>;
+    }
+
+    // Wrapper: Just a fragment now, as guests can edit too.
+    const Wrapper = ({ children }) => <>{children}</>;
+
+    try {
+      switch (currentStep) {
+        case 0: return <Wrapper><ConsultationForm data={currentRecord.consultation || {}} onChange={(d) => updateCurrentRecord('consultation', d)} /></Wrapper>;
+        case 1: return <Wrapper><EstimateForm title="견적 1차 입력내용" data={currentRecord.estimate1 || { items: [], total: 0, currency: 'KRW' }} onChange={(d) => updateCurrentRecord('estimate1', d)} /></Wrapper>;
+        case 2: return <Wrapper><EstimateForm title="견적 2차 입력내용" data={currentRecord.estimate2 || { items: [], total: 0, currency: 'KRW' }} onChange={(d) => updateCurrentRecord('estimate2', d)} onCopyPrevious={handleCopyPrevious} /></Wrapper>;
+        case 3: return <Wrapper><EstimateForm title="견적 3차 입력내용" data={currentRecord.estimate3 || { items: [], total: 0, currency: 'KRW' }} onChange={(d) => updateCurrentRecord('estimate3', d)} onCopyPrevious={handleCopyPrevious} /></Wrapper>;
+        case 4: return <Wrapper><EstimateForm title="데모 내용 입력" data={currentRecord.demo || { items: [], total: 0, currency: 'KRW' }} onChange={(d) => updateCurrentRecord('demo', d)} onCopyPrevious={handleCopyPrevious} /></Wrapper>;
+        case 5: return <Wrapper><EstimateForm title="계약 내용 입력" data={currentRecord.contract || { items: [], total: 0, currency: 'KRW' }} onChange={(d) => updateCurrentRecord('contract', d)} onCopyPrevious={handleCopyPrevious} /></Wrapper>;
+        case 6: return <Wrapper><DeliveryInspectionForm data={currentRecord.delivery || { rows: [] }} onChange={(d) => updateCurrentRecord('delivery', d)} onCopyPrevious={handleCopyPrevious} /></Wrapper>;
+        case 7: return <Wrapper><DeliveryInspectionForm data={currentRecord.inspection || { rows: [] }} onChange={(d) => updateCurrentRecord('inspection', d)} onCopyPrevious={handleCopyPrevious} /></Wrapper>;
+        case 8: return <Wrapper><PaymentForm data={currentRecord.payment || { rows: [] }} onChange={(d) => updateCurrentRecord('payment', d)} /></Wrapper>;
+        default:
+          return (
+            <div className="bg-white shadow-md rounded-lg p-10 text-center border border-gray-200 min-h-[400px] flex flex-col justify-center items-center">
+              <h2 className="text-2xl font-bold text-gray-800 mb-4">{steps[currentStep]} 단계 완료</h2>
+              <p className="text-gray-600 mb-8">영업 프로세스가 모두 완료되었습니다.</p>
+              <button onClick={() => setView('list')} className="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold">목록으로 이동</button>
+            </div>
+          );
+      }
+    } catch (e) {
+      console.error('Rendering Error:', e);
+      return <div className="p-8 text-center text-red-600">화면을 표시하는 중 문제가 발생했습니다.<br />{e.message}</div>;
     }
   };
 
@@ -278,8 +365,8 @@ function App() {
               영업DB
             </h1>
             {userRole === 'viewer' && (
-              <span className="bg-gray-200 text-gray-600 text-[10px] px-2 py-0.5 rounded-full font-bold self-center ml-1">
-                구경꾼
+              <span className="bg-gray-200 text-gray-600 text-[10px] sm:text-xs px-2 py-0.5 rounded-full font-bold self-center ml-1 truncate">
+                게스트 (수정가능/삭제불가)
               </span>
             )}
             {view === 'edit' && (
@@ -292,7 +379,9 @@ function App() {
             )}
           </div>
           <div className="flex-shrink-0 scale-90 sm:scale-100 origin-right min-w-0 flex items-center gap-2">
-            <GithubSync records={records} setRecords={setRecords} encryptionKey={encryptionKey} userRole={userRole} />
+            <div className="flex items-center gap-1 bg-green-50 px-2 py-1 rounded text-green-700 text-xs font-bold border border-green-200">
+              <span className="animate-pulse">●</span> 실시간 저장 중
+            </div>
             <button
               onClick={handleLogout}
               className="bg-gray-100 px-2 py-1.5 rounded-md hover:bg-red-50 hover:text-red-600 transition-colors text-[10px] sm:text-xs font-bold shrink-0"

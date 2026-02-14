@@ -35,7 +35,16 @@ const DeliveryInspectionForm = ({ data, onChange, onCopyPrevious }) => {
     return (
         <div className="bg-white shadow-md rounded-lg p-6 w-full max-w-4xl mx-auto border border-gray-200">
             <div className="flex justify-between items-center mb-4 border-b pb-2">
-                <h2 className="text-xl font-bold text-gray-800">납품/검수 내용 입력</h2>
+                <div className="flex items-center gap-3">
+                    <h2 className="text-xl font-bold text-gray-800">납품/검수 내용 입력</h2>
+                    <input
+                        type="date"
+                        name="date"
+                        value={data.date || new Date().toISOString().slice(0, 10)}
+                        onChange={(e) => onChange({ ...data, date: e.target.value })}
+                        className="border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-600 font-normal"
+                    />
+                </div>
                 {onCopyPrevious && (
                     <button
                         onClick={onCopyPrevious}
