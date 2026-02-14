@@ -13,6 +13,20 @@ const MemoizedEstimateForm = memo(EstimateForm);
 const MemoizedDeliveryInspectionForm = memo(DeliveryInspectionForm);
 const MemoizedPaymentForm = memo(PaymentForm);
 
+// 기본 품목 양식
+const defaultItems = [
+  { name: '본체', model: '', spec: '', price: '' },
+  { name: 'S/W', model: '', spec: '', price: '' },
+  { name: '소모품', model: '', spec: '', price: '' },
+  { name: '기타', model: '', spec: '', price: '' }
+];
+
+const defaultRows = [
+  { category: '본체', model: '', spec: '', confirmed: false },
+  { category: 'S/W', model: '', spec: '', confirmed: false },
+  { category: '소모품', model: '', spec: '', confirmed: false }
+];
+
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userRole, setUserRole] = useState('viewer');
@@ -22,10 +36,8 @@ function App() {
   const [editingRecord, setEditingRecord] = useState(null);
   const [currentStep, setCurrentStep] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
 
   const fetchRecords = async () => {
-    setIsLoading(true);
     const { data, error } = await supabase.from('sales').select('*').order('updated_at', { ascending: false });
     if (!error && data) {
       const loaded = data.map(row => {
@@ -34,7 +46,6 @@ function App() {
       }).filter(r => r && r.id);
       setRecords(loaded);
     }
-    setIsLoading(false);
   };
 
   const handleRouting = useCallback(() => {
@@ -62,15 +73,29 @@ function App() {
     return () => window.removeEventListener('hashchange', handleRouting);
   }, [handleRouting]);
 
+  // 레코드 데이터 로드 및 초기화 (핵심: 데이터가 없으면 기본 양식 주입)
   useEffect(() => {
-    if (view === 'edit' && currentId && records.length > 0 && !editingRecord) {
-      const record = records.find(r => String(r.id) === String(currentId));
-      if (record) {
-        setEditingRecord(record);
-        setCurrentStep(record.currentStep || 0);
+    if (view === 'edit' && currentId && records.length > 0) {
+      const found = records.find(r => String(r.id) === String(currentId));
+      if (found) {
+        // 데이터가 비어있다면 기본 양식으로 채워줌
+        const sanitized = {
+          ...found,
+          consultation: found.consultation || { clientName: '' },
+          estimate1: { items: found.estimate1?.items?.length ? found.estimate1.items : defaultItems, total: found.estimate1?.total || 0 },
+          estimate2: { items: found.estimate2?.items?.length ? found.estimate2.items : defaultItems, total: found.estimate2?.total || 0 },
+          estimate3: { items: found.estimate3?.items?.length ? found.estimate3.items : defaultItems, total: found.estimate3?.total || 0 },
+          demo: { items: found.demo?.items?.length ? found.demo.items : defaultItems, total: found.demo?.total || 0 },
+          contract: { items: found.contract?.items?.length ? found.contract.items : defaultItems, total: found.contract?.total || 0 },
+          delivery: { rows: found.delivery?.rows?.length ? found.delivery.rows : defaultRows },
+          inspection: { rows: found.inspection?.rows?.length ? found.inspection.rows : defaultRows },
+          payment: found.payment || { rows: [] }
+        };
+        setEditingRecord(sanitized);
+        setCurrentStep(found.currentStep || 0);
       }
     }
-  }, [view, currentId, records, editingRecord]);
+  }, [view, currentId, records]);
 
   const handleManualSave = async (recordToSave = editingRecord) => {
     if (!recordToSave || isSaving) return;
@@ -83,10 +108,13 @@ function App() {
       updated_at: finalRecord.updatedAt,
       data: finalRecord
     }, { onConflict: 'id' });
+
     if (!error) {
       setEditingRecord(finalRecord);
       setRecords(prev => prev.map(r => String(r.id) === String(finalRecord.id) ? finalRecord : r));
-    } else { alert('저장 실패: ' + error.message); }
+    } else {
+      alert('저장 실패: ' + error.message);
+    }
     setIsSaving(false);
   };
 
@@ -97,7 +125,7 @@ function App() {
     const currentSection = steps[currentStep];
     const prevData = editingRecord[prevSection];
     if (prevData) {
-      setEditingRecord(prev => ({ ...prev, [currentSection]: { ...prevData } }));
+      setEditingRecord(prev => ({ ...prev, [currentSection]: JSON.parse(JSON.stringify(prevData)) }));
     }
   }, [editingRecord, currentStep]);
 
@@ -122,7 +150,7 @@ function App() {
         <h1 className="font-black text-blue-800 cursor-pointer text-xl" onClick={() => window.location.hash = '#list'}>영업DB</h1>
         <div className="flex gap-2">
           {view === 'edit' && (
-            <button onClick={() => handleManualSave()} disabled={isSaving} className={`px-4 py-1.5 rounded-lg font-bold text-white shadow-md ${isSaving ? 'bg-gray-400' : 'bg-green-600'}`}>
+            <button onClick={() => handleManualSave()} disabled={isSaving} className={`px-4 py-1.5 rounded-lg font-bold text-white shadow-md active:scale-95 transition-all ${isSaving ? 'bg-gray-400' : 'bg-green-600'}`}>
               {isSaving ? '저장 중...' : '✔ 지금 저장'}
             </button>
           )}
@@ -134,22 +162,23 @@ function App() {
         {view === 'list' ? (
           <SalesList records={records} onSelect={(id) => window.location.hash = `#edit/${id}`} onCreate={async () => {
             const newId = Date.now().toString();
-            const newRecord = { id: newId, currentStep: 0, updatedAt: new Date().toISOString(), consultation: { clientName: '' }, estimate1: { items: [], total: 0, currency: 'KRW' }, estimate2: { items: [], total: 0, currency: 'KRW' }, estimate3: { items: [], total: 0, currency: 'KRW' }, demo: { items: [], total: 0, currency: 'KRW' }, contract: { items: [], total: 0, currency: 'KRW' }, delivery: { rows: [] }, inspection: { rows: [] }, payment: { rows: [] } };
+            const newRecord = { id: newId, currentStep: 0, updatedAt: new Date().toISOString(), consultation: { clientName: '' }, estimate1: { items: defaultItems, total: 0 }, estimate2: { items: defaultItems, total: 0 }, estimate3: { items: defaultItems, total: 0 }, demo: { items: defaultItems, total: 0 }, contract: { items: defaultItems, total: 0 }, delivery: { rows: defaultRows }, inspection: { rows: defaultRows }, payment: { rows: [] } };
             await supabase.from('sales').insert({ id: newId, client_name: '신규 업체', data: newRecord });
+            fetchRecords();
             window.location.hash = `#edit/${newId}`;
           }} onDelete={async (id) => { if (window.confirm('삭제하시겠습니까?')) { await supabase.from('sales').delete().eq('id', id); fetchRecords(); } }} userRole={userRole} />
         ) : (
           <div key={currentId}>
             <div className="mb-4 flex justify-between items-center bg-blue-50 p-3 rounded-lg border border-blue-100 shadow-sm">
-              <span className="font-bold text-blue-800">업체: {editingRecord?.consultation?.clientName || '로딩 중...'}</span>
+              <span className="font-bold text-blue-800">업체: {editingRecord?.consultation?.clientName || '신규 업체'}</span>
               <span className="text-xs text-blue-500 font-bold bg-white px-2 py-1 rounded-full border">단계 {currentStep + 1}/10</span>
             </div>
             <Wizard steps={['상담', '1차', '2차', '3차', '데모', '계약', '납품', '검수', '결제', '완료']} currentStep={currentStep} onStepClick={(idx) => { setCurrentStep(idx); setEditingRecord(p => p ? ({ ...p, currentStep: idx }) : null); }} />
             <div className="mt-6 mb-10">
               {currentStep === 0 && <MemoizedConsultationForm data={editingRecord?.consultation || {}} onChange={(d) => updateCurrentRecord('consultation', d)} />}
-              {currentStep >= 1 && currentStep <= 5 && <MemoizedEstimateForm title={titles[currentStep]} data={editingRecord?.[sectionMap[currentStep]] || { items: [], total: 0 }} onChange={(d) => updateCurrentRecord(sectionMap[currentStep], d)} onCopyPrevious={currentStep > 0 ? handleCopyPrevious : null} />}
-              {currentStep === 6 && <MemoizedDeliveryInspectionForm data={editingRecord?.delivery || { rows: [] }} onChange={(d) => updateCurrentRecord('delivery', d)} onCopyPrevious={handleCopyPrevious} />}
-              {currentStep === 7 && <MemoizedDeliveryInspectionForm data={editingRecord?.inspection || { rows: [] }} onChange={(d) => updateCurrentRecord('inspection', d)} />}
+              {currentStep >= 1 && currentStep <= 5 && <MemoizedEstimateForm title={titles[currentStep]} data={editingRecord?.[sectionMap[currentStep]] || { items: defaultItems, total: 0 }} onChange={(d) => updateCurrentRecord(sectionMap[currentStep], d)} onCopyPrevious={currentStep > 0 ? handleCopyPrevious : null} />}
+              {currentStep === 6 && <MemoizedDeliveryInspectionForm data={editingRecord?.delivery || { rows: defaultRows }} onChange={(d) => updateCurrentRecord('delivery', d)} onCopyPrevious={handleCopyPrevious} />}
+              {currentStep === 7 && <MemoizedDeliveryInspectionForm data={editingRecord?.inspection || { rows: defaultRows }} onChange={(d) => updateCurrentRecord('inspection', d)} />}
               {currentStep === 8 && <MemoizedPaymentForm data={editingRecord?.payment || { rows: [] }} onChange={(d) => updateCurrentRecord('payment', d)} />}
               {currentStep === 9 && <div className="p-20 text-center bg-white rounded-xl border border-blue-200 shadow-inner"><h2 className="text-2xl font-black text-blue-800 mb-4">🚀 완료되었습니다</h2><button onClick={() => window.location.hash = '#list'} className="bg-blue-600 text-white px-8 py-3 rounded-xl font-bold">목록가기</button></div>}
             </div>
