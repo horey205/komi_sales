@@ -133,6 +133,16 @@ function App() {
     setEditingRecord(prev => prev ? ({ ...prev, [section]: data }) : null);
   }, []);
 
+  const handleLogout = () => {
+    if (window.confirm('로그아웃 하시겠습니까?')) {
+      setIsLoggedIn(false);
+      setUserRole('viewer');
+      localStorage.removeItem('isLoggedIn');
+      sessionStorage.removeItem('userRole');
+      window.location.hash = '#list';
+    }
+  };
+
   if (!isLoggedIn) return <Login onLogin={(key, role) => {
     setIsLoggedIn(true);
     setUserRole(role);
@@ -147,14 +157,20 @@ function App() {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       <header className="bg-white border-b sticky top-0 z-50 px-4 py-2 flex justify-between items-center shadow-sm">
-        <h1 className="font-black text-blue-800 cursor-pointer text-xl" onClick={() => window.location.hash = '#list'}>영업DB</h1>
+        <div className="flex items-center gap-4">
+          <h1 className="font-black text-blue-800 cursor-pointer text-xl" onClick={() => window.location.hash = '#list'}>영업DB</h1>
+          <span className={`text-[10px] uppercase tracking-wider font-black px-2 py-0.5 rounded-md ${userRole === 'admin' ? 'bg-red-500 text-white' : 'bg-blue-500 text-white'}`}>
+            {userRole === 'admin' ? 'ADMIN' : 'VIEWER'}
+          </span>
+        </div>
         <div className="flex gap-2">
           {view === 'edit' && (
             <button onClick={() => handleManualSave()} disabled={isSaving} className={`px-4 py-1.5 rounded-lg font-bold text-white shadow-md active:scale-95 transition-all ${isSaving ? 'bg-gray-400' : 'bg-green-600'}`}>
               {isSaving ? '저장 중...' : '✔ 지금 저장'}
             </button>
           )}
-          <button onClick={() => window.location.hash = '#list'} className="px-3 py-1.5 bg-gray-100 rounded-lg font-bold text-gray-600">목록</button>
+          <button onClick={() => window.location.hash = '#list'} className="px-3 py-1.5 bg-gray-100 rounded-lg font-bold text-gray-600 hover:bg-gray-200 transition-colors">목록</button>
+          <button onClick={handleLogout} className="px-3 py-1.5 bg-red-50 text-red-600 rounded-lg font-bold border border-red-100 hover:bg-red-100 transition-colors">로그아웃</button>
         </div>
       </header>
 
