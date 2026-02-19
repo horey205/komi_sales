@@ -71,7 +71,7 @@ const Login = ({ onLogin }) => {
                 </form>
 
                 <div className="mt-6 text-center text-xs text-gray-400">
-                    sales management system v1.0
+                    sales management system v1.1 (Mobile Update)
                 </div>
             </div>
         </div>

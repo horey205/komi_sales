@@ -61,8 +61,8 @@ const EstimateForm = ({ title, data, onChange, onCopyPrevious, isDemo = false })
                 )}
             </div>
 
-            {/* PC용 테이블 (md 이상에서만 보임) */}
-            <div className="hidden md:block overflow-x-auto border-2 border-gray-100 rounded-2xl mb-4">
+            {/* PC용 테이블 (lg 이상에서만 보임) */}
+            <div className="hidden lg:block overflow-x-auto border-2 border-gray-100 rounded-2xl">
                 <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50 font-black text-gray-500 uppercase">
                         <tr className="text-center text-xs">
@@ -121,8 +121,8 @@ const EstimateForm = ({ title, data, onChange, onCopyPrevious, isDemo = false })
                 </table>
             </div>
 
-            {/* 모바일용 카드 리스트 (md 미만에서 보임) */}
-            <div className="md:hidden space-y-4 mb-6">
+            {/* 모바일용 카드 리스트 (lg 미만에서 보임) */}
+            <div className="lg:hidden space-y-4">
                 {items.length > 0 ? items.map((item, index) => (
                     <div key={index} className="bg-gray-50 p-4 rounded-2xl border border-gray-200 space-y-3">
                         <div className="flex justify-between items-center border-b pb-2">

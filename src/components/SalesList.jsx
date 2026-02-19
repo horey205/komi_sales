@@ -55,8 +55,8 @@ const SalesList = ({ records, onSelect, onDelete, onCreate, userRole }) => {
                 </div>
             </div>
 
-            {/* PC용 테이블 (md 이상에서만 보임) */}
-            <div className="hidden md:block overflow-x-auto">
+            {/* PC용 테이블 (lg 이상에서만 보임) */}
+            <div className="hidden lg:block overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200 border">
                     <thead className="bg-gray-50">
                         <tr>
@@ -131,8 +131,8 @@ const SalesList = ({ records, onSelect, onDelete, onCreate, userRole }) => {
                 </table>
             </div>
 
-            {/* 모바일용 카드 리스트 (md 미만에서 보임) */}
-            <div className="md:hidden space-y-4">
+            {/* 모바일용 카드 리스트 (lg 미만에서 보임) */}
+            <div className="lg:hidden space-y-4">
                 {filteredRecords.length > 0 ? (
                     filteredRecords.map((record) => (
                         <div
