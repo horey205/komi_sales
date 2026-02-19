@@ -208,18 +208,18 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col font-sans text-gray-900">
-      <header className="bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center sticky top-0 z-50 shadow-md">
-        <div className="flex items-center gap-4">
-          <h1 className="text-2xl font-black text-blue-600 tracking-tighter cursor-pointer" onClick={() => window.location.hash = '#list'}>KOMI SALES</h1>
-          <span className="bg-gray-100 text-gray-500 text-[10px] px-2 py-0.5 rounded font-black uppercase tracking-widest">{userRole} AUTH</span>
+      <header className="bg-white border-b border-gray-200 px-3 sm:px-6 py-3 sm:py-4 flex justify-between items-center sticky top-0 z-50 shadow-md">
+        <div className="flex items-center gap-2 sm:gap-4">
+          <h1 className="text-xl sm:text-2xl font-black text-blue-600 tracking-tighter cursor-pointer" onClick={() => window.location.hash = '#list'}>KOMI SALES</h1>
+          <span className="hidden xs:inline-block bg-gray-100 text-gray-500 text-[10px] px-2 py-0.5 rounded font-black uppercase tracking-widest">{userRole} AUTH</span>
         </div>
         <div className="flex gap-2">
-          <button onClick={() => window.location.hash = '#list'} className="px-5 py-2 bg-gray-100 rounded-xl font-bold text-gray-600 hover:bg-gray-200 transition-all active:scale-95 shadow-sm">목록</button>
-          <button onClick={handleLogout} className="px-5 py-2 bg-red-50 text-red-600 rounded-xl font-bold border border-red-100 hover:bg-red-100 transition-all active:scale-95 shadow-sm">로그아웃</button>
+          <button onClick={() => window.location.hash = '#list'} className="px-3 sm:px-5 py-2 bg-gray-100 rounded-xl font-bold text-gray-600 hover:bg-gray-200 transition-all active:scale-95 shadow-sm text-sm">목록</button>
+          <button onClick={handleLogout} className="px-3 sm:px-5 py-2 bg-red-50 text-red-600 rounded-xl font-bold border border-red-100 hover:bg-red-100 transition-all active:scale-95 shadow-sm text-sm">로그아웃</button>
         </div>
       </header>
 
-      <main className="flex-1 p-4 max-w-6xl mx-auto w-full mb-20">
+      <main className="flex-1 p-2 sm:p-4 max-w-6xl mx-auto w-full mb-20">
         {view === 'list' ? (
           <SalesList records={records} onSelect={(id) => window.location.hash = `#edit/${id}`} onCreate={async () => {
             const newId = Date.now().toString();
@@ -251,11 +251,11 @@ function App() {
 
             <div className="mt-8 space-y-8 pb-32">
               {/* 상단 통합 저장 버튼 */}
-              <div className="flex justify-end sticky top-20 z-40 py-2">
+              <div className="flex justify-end sticky top-16 sm:top-20 z-40 py-2">
                 <button
                   onClick={handleManualSave}
                   disabled={isSaving}
-                  className={`px-10 py-4 rounded-2xl font-black text-white shadow-2xl active:scale-95 transition-all text-xl flex items-center gap-2 ${isSaving ? 'bg-gray-400' : 'bg-blue-600 hover:bg-blue-700 hover:-translate-y-1'}`}
+                  className={`px-5 sm:px-10 py-3 sm:py-4 rounded-xl sm:rounded-2xl font-black text-white shadow-2xl active:scale-95 transition-all text-sm sm:text-xl flex items-center gap-2 ${isSaving ? 'bg-gray-400' : 'bg-blue-600 hover:bg-blue-700 hover:-translate-y-1'}`}
                 >
                   {isSaving ? '⏳ 저장 중...' : '💾 내용 저장하기'}
                 </button>
@@ -285,11 +285,11 @@ function App() {
 
               {/* 하단 통합 저장 버튼 (플로팅 고정 효과를 위해 위에 패딩 추가) */}
               {currentStep < STEPS.COMPLETE && (
-                <div className="flex justify-center pt-10 border-t-4 border-gray-100 mt-10">
+                <div className="flex justify-center pt-6 sm:pt-10 border-t-4 border-gray-100 mt-6 sm:mt-10">
                   <button
                     onClick={handleManualSave}
                     disabled={isSaving}
-                    className={`w-full max-w-2xl py-8 rounded-3xl font-black text-white shadow-2xl active:scale-95 transition-all text-3xl flex justify-center items-center gap-4 ${isSaving ? 'bg-gray-400 animate-pulse' : 'bg-green-600 hover:bg-green-700'}`}
+                    className={`w-full max-w-2xl py-5 sm:py-8 rounded-2xl sm:rounded-3xl font-black text-white shadow-2xl active:scale-95 transition-all text-xl sm:text-3xl flex justify-center items-center gap-4 ${isSaving ? 'bg-gray-400 animate-pulse' : 'bg-green-600 hover:bg-green-700'}`}
                   >
                     {isSaving ? '⏳ 데이터 전송 중...' : '✔ 작성 완료 및 전송'}
                   </button>
@@ -299,9 +299,9 @@ function App() {
 
             {/* 스탭 이동 내비게이션 (자동 저장 포함) */}
             {currentStep < STEPS.COMPLETE && (
-              <div className="fixed bottom-6 left-1/2 -translate-x-1/2 flex gap-4 z-50 w-full max-w-4xl px-4">
-                <button onClick={() => { const s = currentStep - 1; if (s >= 0) handleStepChange(s); }} disabled={currentStep === 0} className={`flex-1 py-5 rounded-2xl font-black shadow-2xl transition-all backdrop-blur-md border-2 ${currentStep === 0 ? 'bg-white/50 text-gray-300 border-gray-100' : 'bg-gray-800/90 text-white border-gray-700 hover:bg-gray-900'}`}>이전 단계 (저장)</button>
-                <button onClick={() => { const s = currentStep + 1; if (s <= 9) handleStepChange(s); }} className="flex-1 bg-blue-600/90 text-white py-5 rounded-2xl font-black shadow-2xl text-xl backdrop-blur-md border-2 border-blue-400 hover:bg-blue-700">다음 단계 → (자동저장)</button>
+              <div className="fixed bottom-4 sm:bottom-6 left-1/2 -translate-x-1/2 flex gap-2 sm:gap-4 z-50 w-[95%] sm:w-full max-w-4xl px-2 sm:px-4">
+                <button onClick={() => { const s = currentStep - 1; if (s >= 0) handleStepChange(s); }} disabled={currentStep === 0} className={`flex-1 py-4 sm:py-5 rounded-xl sm:rounded-2xl font-black shadow-2xl transition-all backdrop-blur-md border-2 text-sm sm:text-base ${currentStep === 0 ? 'bg-white/50 text-gray-300 border-gray-100' : 'bg-gray-800/90 text-white border-gray-700 hover:bg-gray-900'}`}>이전 (저장)</button>
+                <button onClick={() => { const s = currentStep + 1; if (s <= 9) handleStepChange(s); }} className="flex-[1.5] bg-blue-600/90 text-white py-4 sm:py-5 rounded-xl sm:rounded-2xl font-black shadow-2xl text-base sm:text-xl backdrop-blur-md border-2 border-blue-400 hover:bg-blue-700">다음 단계 →</button>
               </div>
             )}
           </div>

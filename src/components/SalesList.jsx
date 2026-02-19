@@ -55,7 +55,8 @@ const SalesList = ({ records, onSelect, onDelete, onCreate, userRole }) => {
                 </div>
             </div>
 
-            <div className="overflow-x-auto">
+            {/* PC용 테이블 (md 이상에서만 보임) */}
+            <div className="hidden md:block overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200 border">
                     <thead className="bg-gray-50">
                         <tr>
@@ -128,6 +129,68 @@ const SalesList = ({ records, onSelect, onDelete, onCreate, userRole }) => {
                         )}
                     </tbody>
                 </table>
+            </div>
+
+            {/* 모바일용 카드 리스트 (md 미만에서 보임) */}
+            <div className="md:hidden space-y-4">
+                {filteredRecords.length > 0 ? (
+                    filteredRecords.map((record) => (
+                        <div
+                            key={record.id}
+                            className="bg-gray-50 p-5 rounded-2xl border border-gray-200 active:bg-blue-50 transition-colors"
+                            onClick={() => onSelect(record.id)}
+                        >
+                            <div className="flex justify-between items-start mb-3">
+                                <div>
+                                    <div className="text-lg font-black text-blue-600 mb-1">
+                                        {record.client_name || record.data?.consultation?.clientName || '이름 없음'}
+                                    </div>
+                                    <div className="text-sm text-gray-500 flex items-center gap-1">
+                                        <span className="font-bold">담당:</span> {record.data?.consultation?.manager || '-'}
+                                    </div>
+                                </div>
+                                <span className={`px-3 py-1 text-xs font-black rounded-full shadow-sm ${getStatusColor(record.data?.currentStep || 0)}`}>
+                                    {steps[record.data?.currentStep || 0]}
+                                </span>
+                            </div>
+
+                            <div className="flex justify-between items-center pt-3 border-t border-gray-200 mt-3">
+                                <span className="text-[10px] text-gray-400 font-bold">
+                                    {record.updated_at ? new Date(record.updated_at).toLocaleString() : '-'}
+                                </span>
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            const clientName = record.client_name || record.data?.consultation?.clientName || 'NoName';
+                                            const safeName = clientName.replace(/[\\/:*?"<>|]/g, '_');
+                                            const date = new Date().toISOString().slice(0, 10);
+                                            exportToExcel([record], `Sales_${safeName}_${date}.xlsx`);
+                                        }}
+                                        className="bg-green-100 text-green-700 p-2.5 rounded-xl active:scale-90 transition-all font-bold text-xs"
+                                    >
+                                        엑셀
+                                    </button>
+                                    {userRole === 'admin' && (
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                onDelete(record.id);
+                                            }}
+                                            className="bg-red-100 text-red-600 p-2.5 rounded-xl active:scale-90 transition-all font-bold text-xs"
+                                        >
+                                            삭제
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    ))
+                ) : (
+                    <div className="p-10 text-center text-gray-500 bg-gray-50 rounded-2xl border-2 border-dashed font-bold italic">
+                        등록된 상담 내역이 없습니다.
+                    </div>
+                )}
             </div>
 
             <div className="mt-4 text-xs text-gray-400">

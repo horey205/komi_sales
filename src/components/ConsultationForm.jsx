@@ -11,8 +11,8 @@ const ConsultationForm = ({ data, onChange }) => {
     const labelClass = "text-sm font-black text-gray-400 mb-1.5 ml-1";
 
     return (
-        <div className="bg-white shadow-xl rounded-3xl p-8 w-full max-w-4xl mx-auto border border-gray-100">
-            <h2 className="text-3xl font-black text-gray-800 mb-8 border-b-8 border-blue-500 pb-2 inline-block">📋 기초 상담 기록</h2>
+        <div className="bg-white shadow-xl rounded-3xl p-4 sm:p-8 w-full max-w-4xl mx-auto border border-gray-100">
+            <h2 className="text-2xl sm:text-3xl font-black text-gray-800 mb-6 sm:mb-8 border-b-8 border-blue-500 pb-2 inline-block">📋 기초 상담 기록</h2>
 
             <div className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

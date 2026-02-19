@@ -37,7 +37,8 @@ const DeliveryInspectionForm = ({ title, data, onChange, onCopyPrevious, mode = 
                     )}
                 </div>
             </div>
-            <div className="overflow-x-auto border-2 border-gray-100 rounded-2xl">
+            {/* PC용 테이블 (md 이상에서만 보임) */}
+            <div className="hidden md:block overflow-x-auto border-2 border-gray-100 rounded-2xl">
                 <table className="min-w-full divide-y divide-gray-200 text-sm">
                     <thead className="bg-gray-50 font-black text-gray-500 uppercase">
                         <tr className="text-center">
@@ -101,6 +102,57 @@ const DeliveryInspectionForm = ({ title, data, onChange, onCopyPrevious, mode = 
                         )}
                     </tbody>
                 </table>
+            </div>
+
+            {/* 모바일용 카드 리스트 (md 미만에서 보임) */}
+            <div className="md:hidden space-y-4">
+                {rows.length > 0 ? rows.map((row, idx) => (
+                    <div key={idx} className="bg-gray-50 p-4 rounded-2xl border border-gray-200 space-y-3 relative">
+                        <div className="flex justify-between items-start border-b pb-2">
+                            <input
+                                type="text"
+                                value={row.category || ''}
+                                onChange={(e) => handleChange(idx, 'category', e.target.value)}
+                                className="bg-transparent font-black text-blue-600 outline-none w-2/3"
+                                placeholder="품목명"
+                            />
+                            {mode === 'inspection' && (
+                                <div className="flex flex-col items-center">
+                                    <span className="text-[10px] font-bold text-gray-400 mb-1">검수</span>
+                                    <input
+                                        type="checkbox"
+                                        checked={row.confirmed || false}
+                                        onChange={(e) => handleChange(idx, 'confirmed', e.target.checked)}
+                                        className="w-7 h-7 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                    />
+                                </div>
+                            )}
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="col-span-2">
+                                <label className="text-[10px] font-bold text-gray-400">모델 / 규격</label>
+                                <div className="flex gap-2">
+                                    <input type="text" value={row.model || ''} onChange={(e) => handleChange(idx, 'model', e.target.value)} className={inputClass} placeholder="모델명" />
+                                    <input type="text" value={row.spec || ''} onChange={(e) => handleChange(idx, 'spec', e.target.value)} className={inputClass} placeholder="규격" />
+                                </div>
+                            </div>
+                            {mode === 'delivery' && (
+                                <div className="col-span-2">
+                                    <label className="text-[10px] font-bold text-gray-400">납품 수량</label>
+                                    <input
+                                        type="number"
+                                        value={row.qty || ''}
+                                        onChange={(e) => handleChange(idx, 'qty', e.target.value)}
+                                        className={`${inputClass} text-center font-black text-blue-600 bg-blue-50 py-3`}
+                                        placeholder="0"
+                                    />
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )) : (
+                    <div className="p-10 text-center text-gray-400 font-bold border-2 border-dashed rounded-2xl italic">표시할 데이터가 없습니다.</div>
+                )}
             </div>
         </div>
     );

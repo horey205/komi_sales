@@ -61,7 +61,8 @@ const EstimateForm = ({ title, data, onChange, onCopyPrevious, isDemo = false })
                 )}
             </div>
 
-            <div className="overflow-x-auto border-2 border-gray-100 rounded-2xl mb-4">
+            {/* PC용 테이블 (md 이상에서만 보임) */}
+            <div className="hidden md:block overflow-x-auto border-2 border-gray-100 rounded-2xl mb-4">
                 <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50 font-black text-gray-500 uppercase">
                         <tr className="text-center text-xs">
@@ -118,6 +119,66 @@ const EstimateForm = ({ title, data, onChange, onCopyPrevious, isDemo = false })
                         )}
                     </tbody>
                 </table>
+            </div>
+
+            {/* 모바일용 카드 리스트 (md 미만에서 보임) */}
+            <div className="md:hidden space-y-4 mb-6">
+                {items.length > 0 ? items.map((item, index) => (
+                    <div key={index} className="bg-gray-50 p-4 rounded-2xl border border-gray-200 space-y-3">
+                        <div className="flex justify-between items-center border-b pb-2">
+                            <input
+                                type="text"
+                                value={item.name || ''}
+                                onChange={(e) => handleItemChange(index, 'name', e.target.value)}
+                                className="bg-transparent font-black text-blue-600 outline-none w-1/2"
+                                placeholder="품목명"
+                            />
+                            <span className="text-xs font-bold text-gray-400">항목 {index + 1}</span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="col-span-2">
+                                <label className="text-[10px] font-bold text-gray-400">모델 / 규격</label>
+                                <div className="flex gap-2">
+                                    <input type="text" value={item.model || ''} onChange={(e) => handleItemChange(index, 'model', e.target.value)} className={inputClass} placeholder="모델명" />
+                                    <input type="text" value={item.spec || ''} onChange={(e) => handleItemChange(index, 'spec', e.target.value)} className={inputClass} placeholder="규격" />
+                                </div>
+                            </div>
+                            {!isDemo ? (
+                                <>
+                                    <div>
+                                        <label className="text-[10px] font-bold text-gray-400">수량</label>
+                                        <input type="number" value={item.qty || ''} onChange={(e) => handleItemChange(index, 'qty', e.target.value)} className={inputClass} placeholder="0" />
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] font-bold text-gray-400">단가</label>
+                                        <input type="number" value={item.price || ''} onChange={(e) => handleItemChange(index, 'price', e.target.value)} className={inputClass} placeholder="0" />
+                                    </div>
+                                    <div className="col-span-2 bg-blue-50 p-3 rounded-xl flex justify-between items-center">
+                                        <span className="text-sm font-bold text-blue-600">금액</span>
+                                        <span className="text-lg font-black text-blue-800">
+                                            {currency === 'KRW' ? '₩' : '$'} {(Number(item.amount) || 0).toLocaleString()}
+                                        </span>
+                                    </div>
+                                </>
+                            ) : (
+                                <div className="col-span-2">
+                                    <label className="text-[10px] font-bold text-gray-400">비고</label>
+                                    <input type="text" value={item.note || ''} onChange={(e) => handleItemChange(index, 'note', e.target.value)} className={inputClass} placeholder="비고 입력" />
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )) : (
+                    <div className="p-10 text-center text-gray-400 font-bold border-2 border-dashed rounded-2xl">표시할 품목이 없습니다.</div>
+                )}
+
+                {/* 모바일 합계 섹션 */}
+                {!isDemo && (
+                    <div className="bg-blue-600 p-5 rounded-2xl text-white flex justify-between items-center shadow-lg sticky bottom-2">
+                        <span className="font-bold">최종 합계 ({currency})</span>
+                        <span className="text-2xl font-black">{currency === 'KRW' ? '₩' : '$'} {total.toLocaleString()}</span>
+                    </div>
+                )}
             </div>
         </div>
     );
