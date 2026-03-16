@@ -290,7 +290,7 @@ function App() {
               {currentStep === STEPS.DEMO && <MemoizedEstimateForm title="데모 협의" isDemo={true} data={editingRecord?.demo} onChange={(d) => updateCurrentRecord('demo', d)} onCopyPrevious={handleCopyPrevious} />}
               {currentStep === STEPS.DELIVERY && <MemoizedDeliveryInspectionForm title="제품 납품" mode="delivery" data={editingRecord?.delivery} onChange={(d) => updateCurrentRecord('delivery', d)} onCopyPrevious={handleCopyPrevious} />}
               {currentStep === STEPS.INSPECTION && <MemoizedDeliveryInspectionForm title="최종 검수" mode="inspection" data={editingRecord?.inspection} onChange={(d) => updateCurrentRecord('inspection', d)} onCopyPrevious={handleCopyPrevious} />}
-              {currentStep === STEPS.PAYMENT && <MemoizedPaymentForm data={editingRecord?.payment} onChange={(d) => updateCurrentRecord('payment', d)} />}
+              {currentStep === STEPS.PAYMENT && <MemoizedPaymentForm data={editingRecord?.payment} contractAmount={editingRecord?.contract?.total || 0} onChange={(d) => updateCurrentRecord('payment', d)} />}
 
               {currentStep === STEPS.COMPLETE && (
                 <div className="p-10 mb-20 text-center bg-blue-50 rounded-3xl border-4 border-dashed border-blue-200">
