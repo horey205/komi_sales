@@ -145,7 +145,6 @@ function App() {
       id: editingRecord.id,
       client_name: editingRecord.consultation?.clientName || '미지정',
       data: recordToSave,
-      current_step: newMaxStep, // DB의 검색/목록용 필드도 업데이트
       updated_at: new Date().toISOString()
     });
 
@@ -252,7 +251,6 @@ function App() {
               id: newId, 
               client_name: '신규 업체(입력중)', 
               data: newRecord, 
-              current_step: 0,
               updated_at: new Date().toISOString() 
             });
             if (!error) { fetchRecords(); window.location.hash = `#edit/${newId}`; }

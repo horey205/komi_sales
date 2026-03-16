@@ -1,0 +1,53 @@
+[KOMI SALES DASHBOARD - 기업용 시스템 상세 정보 및 배포 가이드]
+
+1. 시스템 아키텍처 개요
+   이 시스템은 'Frontend-Driven' 구조로 설계되었습니다. 별도의 복잡한 백엔드 서버 없이 클라우드 데이터베이스(DBaaS)와 직접 통신하여 비용이 저렴하고 관리가 매우 용이합니다.
+
+2. 데이터 저장소 (Database) 정보
+   - 엔진: Supabase (PostgreSQL 기반 오픈소스 클라우드 DB)
+   - DB 위치: 현재 Supabase 클라우드 서버에 호스팅 중입니다.
+   - 데이터 테이블 명세 ('sales' 테이블):
+     * id (text/uuid): 고유 레코드 식별자
+     * client_name (text): 업체명 (검색 및 목록용)
+     * current_step (int): 현재 진행 단계 인덱스 (필터링 및 정렬용)
+     * data (json): 전체 상세 데이터 (상담내용, 품목리스트, 결제로그 등 모든 비정형 데이터)
+     * updated_at (timestamptz): 최종 수정 시간
+
+3. 개발 프레임워크 및 언어
+   - Frontend: React 19 (JavaScript)
+   - Build Tool: Vite
+   - CSS: Tailwind CSS 4 (유틸리티 기반 스타일링)
+   - 통신: Supabase-JS SDK (REST API)
+
+4. 보관 및 소스코드 관리
+   - 현재 저장 위치: GitHub Repository (https://github.com/horey205/komi_sales)
+   - 배포 방식: GitHub Actions/Pages를 통한 자동 정적 호스팅 서비스 이용 중
+
+5. 회사 서버(자체 서버) 설치 방법
+   만약 외부 클라우드(GitHub, Supabase)를 사용하지 않고 회사 내부 서버에 설치하려는 경우 다음 단계를 거칩니다.
+
+   Step 1: 환경 구축 (Prerequisites)
+   - 서버에 Node.js (v18 이상) 설치 필요.
+   - 내부망 DB를 사용할 경우 PostgreSQL 서버 준비 필요.
+
+   Step 2: 데이터베이스 이전 (DB Setup)
+   - Supabase를 계속 사용할 경우: .env 파일의 URL과 KEY 값만 새 프로젝트 것으로 변경.
+   - 자체 DB를 사용할 경우: 별도의 API 서버(Node.js/Python 등)를 구축하여 React와 DB 사이를 연결해야 함.
+
+   Step 3: 빌드 및 배포 (Build & Serve)
+   - `npm run build` 명령 실행 -> 'dist' 폴더 생성.
+   - 생성된 'dist' 폴더의 파일들을 Apache, Nginx 또는 IIS와 같은 웹 서버 소프트웨어를 통해 서비스.
+
+   Step 4: 환경 변수 설정
+   - `.env` 파일에 Supabase 접속 정보(URL, Key)가 보안을 위해 분리되어 있습니다. 서버 이전 시 이 파일을 반드시 챙겨야 합니다.
+
+6. 보안 및 인증 메커니즘
+   - 로그인: 현재 `sessionStorage`를 이용한 간이 로그인 시스템 사용 중.
+   - 권한 관리: 'admin'(등록/삭제 가능)과 'viewer'(조회 전용)로 구분하여 권한별 UI 제어.
+   - 보안 데이터: 보안이 중요한 데이터는 `src/utils/crypto.js`를 통해 암호화 처리가 가능하도록 설계됨.
+
+7. 운영 효율성
+   - 이 시스템은 정적 파일만으로 동작하므로 서버 부하가 거의 없습니다.
+   - 모든 데이터 변경 이력이 Supabase 로그에 기록되므로 데이터 복구가 용이합니다.
+
+[작성일: 2026.03.16 / 시스템 설계자 Antigravity]
