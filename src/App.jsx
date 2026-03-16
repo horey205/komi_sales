@@ -130,12 +130,22 @@ function App() {
 
     // 단계 변경 시에는 변경된 단계로 저장, 아니면 현재 단계
     const stepToSave = stepOverride !== null ? stepOverride : currentStep;
-    const recordToSave = { ...editingRecord, currentStep: stepToSave };
+    
+    // 진행 단계가 뒤로 밀리지 않도록 처리 (요구사항 4번)
+    const prevMaxStep = editingRecord.maxStep || 0;
+    const newMaxStep = Math.max(prevMaxStep, stepToSave);
+    
+    const recordToSave = { 
+      ...editingRecord, 
+      currentStep: stepToSave,
+      maxStep: newMaxStep // 최종 진행 단계를 별도로 기록
+    };
 
     const { error } = await supabase.from('sales').upsert({
       id: editingRecord.id,
       client_name: editingRecord.consultation?.clientName || '미지정',
       data: recordToSave,
+      current_step: newMaxStep, // DB의 검색/목록용 필드도 업데이트
       updated_at: new Date().toISOString()
     });
 
@@ -226,6 +236,7 @@ function App() {
             const newRecord = {
               id: newId,
               currentStep: STEPS.CONSULTATION,
+              maxStep: STEPS.CONSULTATION,
               updatedAt: new Date().toISOString(),
               consultation: { clientName: '', dept: '', position: '', manager: '', phone1: '', phone2: '', email: '', address: '', content: '' },
               estimate1: { items: structuredClone(defaultItems), total: 0, currency: 'KRW' },
@@ -237,7 +248,13 @@ function App() {
               inspection: { rows: structuredClone(defaultRows) },
               payment: { rows: [] }
             };
-            const { error } = await supabase.from('sales').insert({ id: newId, client_name: '신규 업체(입력중)', data: newRecord, updated_at: new Date().toISOString() });
+            const { error } = await supabase.from('sales').insert({ 
+              id: newId, 
+              client_name: '신규 업체(입력중)', 
+              data: newRecord, 
+              current_step: 0,
+              updated_at: new Date().toISOString() 
+            });
             if (!error) { fetchRecords(); window.location.hash = `#edit/${newId}`; }
           }} onDelete={async (id) => { if (window.confirm('정말 삭제하시겠습니까?')) { await supabase.from('sales').delete().eq('id', id); fetchRecords(); } }} userRole={userRole} />
         ) : (
@@ -250,14 +267,14 @@ function App() {
             <Wizard steps={['상담', '1차', '2차', '3차', '데모', '계약', '납품', '검수', '결제', '완료']} currentStep={currentStep} onStepClick={handleStepChange} />
 
             <div className="mt-8 space-y-8 pb-32">
-              {/* 상단 통합 저장 버튼 */}
+              {/* 상단 통합 저장 버튼 (크기 축소) */}
               <div className="flex justify-end sticky top-16 sm:top-20 z-40 py-2">
                 <button
                   onClick={handleManualSave}
                   disabled={isSaving}
-                  className={`px-5 sm:px-10 py-3 sm:py-4 rounded-xl sm:rounded-2xl font-black text-white shadow-2xl active:scale-95 transition-all text-sm sm:text-xl flex items-center gap-2 ${isSaving ? 'bg-gray-400' : 'bg-blue-600 hover:bg-blue-700 hover:-translate-y-1'}`}
+                  className={`px-4 py-2 rounded-xl font-black text-white shadow-lg active:scale-95 transition-all text-sm flex items-center gap-2 ${isSaving ? 'bg-gray-400' : 'bg-blue-600 hover:bg-blue-700'}`}
                 >
-                  {isSaving ? '⏳ 저장 중...' : '💾 내용 저장하기'}
+                  {isSaving ? '⏳ 저장중' : '💾 저장'}
                 </button>
               </div>
 
@@ -276,34 +293,43 @@ function App() {
               {currentStep === STEPS.PAYMENT && <MemoizedPaymentForm data={editingRecord?.payment} onChange={(d) => updateCurrentRecord('payment', d)} />}
 
               {currentStep === STEPS.COMPLETE && (
-                <div className="p-20 text-center bg-white rounded-3xl border-4 border-dashed border-blue-200 shadow-2xl">
-                  <h2 className="text-5xl font-black text-blue-800 mb-6 italic tracking-tighter">MISSION COMPLETE!</h2>
-                  <p className="text-gray-400 mb-10 font-bold text-lg">모든 프로세스가 종료되었습니다. 데이터를 최종 확인 후 목록으로 돌아가세요.</p>
-                  <button onClick={() => window.location.hash = '#list'} className="bg-blue-600 text-white px-16 py-6 rounded-3xl font-black text-2xl hover:bg-blue-700 shadow-xl transition-all active:scale-95">대시보드 메인으로</button>
+                <div className="p-10 mb-20 text-center bg-blue-50 rounded-3xl border-4 border-dashed border-blue-200">
+                  <h2 className="text-3xl font-black text-blue-800 mb-2 italic">MISSION COMPLETE!</h2>
+                  <p className="text-gray-500 mb-6 font-bold text-sm">모든 프로세스가 종료되었습니다. 내용을 다시 확인하려면 위 마일스톤의 단계를 클릭하세요.</p>
+                  <button onClick={() => window.location.hash = '#list'} className="bg-blue-600 text-white px-8 py-3 rounded-xl font-black text-lg hover:bg-blue-700 shadow-lg transition-all active:scale-95">메인 대시보드로 이동</button>
                 </div>
               )}
 
-              {/* 하단 통합 저장 버튼 (플로팅 고정 효과를 위해 위에 패딩 추가) */}
+              {/* 하단 통합 저장 버튼 (크기 축소) */}
               {currentStep < STEPS.COMPLETE && (
-                <div className="flex justify-center pt-6 sm:pt-10 border-t-4 border-gray-100 mt-6 sm:mt-10">
+                <div className="flex justify-center pt-10 mb-10">
                   <button
                     onClick={handleManualSave}
                     disabled={isSaving}
-                    className={`w-full max-w-2xl py-5 sm:py-8 rounded-2xl sm:rounded-3xl font-black text-white shadow-2xl active:scale-95 transition-all text-xl sm:text-3xl flex justify-center items-center gap-4 ${isSaving ? 'bg-gray-400 animate-pulse' : 'bg-green-600 hover:bg-green-700'}`}
+                    className={`w-full max-w-sm py-4 rounded-2xl font-black text-white shadow-xl active:scale-95 transition-all text-lg flex justify-center items-center gap-2 ${isSaving ? 'bg-gray-400 animate-pulse' : 'bg-green-600 hover:bg-green-700'}`}
                   >
-                    {isSaving ? '⏳ 데이터 전송 중...' : '✔ 작성 완료 및 전송'}
+                    {isSaving ? '⏳ 데이터 전송 중...' : '✔ 현재 단계 저장'}
                   </button>
                 </div>
               )}
             </div>
 
-            {/* 스탭 이동 내비게이션 (자동 저장 포함) */}
-            {currentStep < STEPS.COMPLETE && (
-              <div className="fixed bottom-4 sm:bottom-6 left-1/2 -translate-x-1/2 flex gap-2 sm:gap-4 z-50 w-[95%] sm:w-full max-w-4xl px-2 sm:px-4">
-                <button onClick={() => { const s = currentStep - 1; if (s >= 0) handleStepChange(s); }} disabled={currentStep === 0} className={`flex-1 py-4 sm:py-5 rounded-xl sm:rounded-2xl font-black shadow-2xl transition-all backdrop-blur-md border-2 text-sm sm:text-base ${currentStep === 0 ? 'bg-white/50 text-gray-300 border-gray-100' : 'bg-gray-800/90 text-white border-gray-700 hover:bg-gray-900'}`}>이전 (저장)</button>
-                <button onClick={() => { const s = currentStep + 1; if (s <= 9) handleStepChange(s); }} className="flex-[1.5] bg-blue-600/90 text-white py-4 sm:py-5 rounded-xl sm:rounded-2xl font-black shadow-2xl text-base sm:text-xl backdrop-blur-md border-2 border-blue-400 hover:bg-blue-700">다음 단계 →</button>
-              </div>
-            )}
+            {/* 스탭 이동 내비게이션 (스타일 개선) */}
+            <div className="fixed bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-50 w-[92%] max-w-3xl">
+              <button 
+                onClick={() => { const s = currentStep - 1; if (s >= 0) handleStepChange(s); }} 
+                disabled={currentStep === 0} 
+                className={`flex-1 py-3 items-center justify-center rounded-xl font-black shadow-xl transition-all border-2 text-xs sm:text-sm ${currentStep === 0 ? 'bg-white/50 text-gray-300 border-gray-100 pointer-events-none' : 'bg-gray-800 text-white border-gray-700'}`}
+              >
+                ◀ 이전 단계
+              </button>
+              <button 
+                onClick={() => { const s = currentStep + 1; if (s <= 9) handleStepChange(s); }} 
+                className={`flex-[2] py-3 rounded-xl font-black shadow-xl text-sm sm:text-base border-2 transition-all ${currentStep === 9 ? 'bg-green-600 border-green-400 text-white' : 'bg-blue-600 text-white border-blue-400'}`}
+              >
+                {currentStep === 9 ? '최종 완료 확인' : '다음 단계로 이동 ▶'}
+              </button>
+            </div>
           </div>
         )}
       </main>
