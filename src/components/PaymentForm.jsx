@@ -97,10 +97,10 @@ const PaymentForm = ({ data, onChange, contractAmount = 0 }) => {
                             <th className="px-2 py-3 border-r">발행 내역 (계산서 등)</th>
                             <th className="px-2 py-3 border-r">날짜</th>
                             <th className="px-2 py-3 border-r">품목</th>
-                            <th className="px-2 py-3 border-r w-20">수량</th>
+                            <th className="px-2 py-3 border-r w-14">수량</th>
                             <th className="px-2 py-3 border-r w-24">단가</th>
                             <th className="px-2 py-3 border-r w-28">공급가액</th>
-                            <th className="px-2 py-3 border-r w-16">부가세</th>
+                            <th className="px-2 py-3 border-r w-22">부가세</th>
                             <th className="px-2 py-3 border-r w-28 text-blue-600">총합계</th>
                             <th className="px-2 py-3 border-r">결제 회차/상태</th>
                             <th className="px-2 py-3">삭제</th>
