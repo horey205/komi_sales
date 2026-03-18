@@ -5,7 +5,8 @@ const PaymentForm = ({ data, onChange, contractAmount = 0 }) => {
 
     // 합계 계산
     const totalPaid = rows.reduce((sum, row) => sum + (Number(row.total) || 0), 0);
-    const balance = contractAmount - totalPaid;
+    const totalContractWithTax = Math.floor(contractAmount * 1.1);
+    const balance = totalContractWithTax - totalPaid;
 
     const handleAddRow = () => {
         const newRows = [...rows];
@@ -63,11 +64,11 @@ const PaymentForm = ({ data, onChange, contractAmount = 0 }) => {
                 <div className="flex gap-2 w-full md:w-auto overflow-x-auto pb-1">
                     <div className="bg-gray-50 border p-3 rounded-xl flex-1 md:w-32">
                         <div className="text-[10px] font-bold text-gray-400">납품금액(VAT제외)</div>
-                        <div className="text-sm font-black text-gray-700">₩{Math.floor(contractAmount / 1.1).toLocaleString()}</div>
+                        <div className="text-sm font-black text-gray-700">₩{contractAmount.toLocaleString()}</div>
                     </div>
                     <div className="bg-gray-50 border p-3 rounded-xl flex-1 md:w-32">
                         <div className="text-[10px] font-bold text-gray-400">총 계약금액(VAT 포함)</div>
-                        <div className="text-sm font-black text-gray-700">₩{contractAmount.toLocaleString()}</div>
+                        <div className="text-sm font-black text-gray-700">₩{totalContractWithTax.toLocaleString()}</div>
                     </div>
                     <div className="bg-blue-50 border border-blue-100 p-3 rounded-xl flex-1 md:w-32">
                         <div className="text-[10px] font-bold text-blue-400">기결제 합계</div>
