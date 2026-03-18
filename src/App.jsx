@@ -282,7 +282,7 @@ function App() {
                   title={titles[currentStep]}
                   data={editingRecord?.[sectionMap[currentStep]]}
                   onChange={(d) => updateCurrentRecord(sectionMap[currentStep], d)}
-                  onCopyPrevious={handleCopyPrevious}
+                  onCopyPrevious={currentStep !== STEPS.ESTIMATE_1 ? handleCopyPrevious : undefined}
                 />
               ) : null}
               {currentStep === STEPS.DEMO && <MemoizedEstimateForm title="데모 협의" isDemo={true} data={editingRecord?.demo} onChange={(d) => updateCurrentRecord('demo', d)} onCopyPrevious={handleCopyPrevious} />}

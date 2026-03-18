@@ -60,9 +60,13 @@ const PaymentForm = ({ data, onChange, contractAmount = 0 }) => {
                 </div>
                 
                 {/* 요약 카드 섹션 (요구사항 7번 핵심) */}
-                <div className="flex gap-2 w-full md:w-auto">
+                <div className="flex gap-2 w-full md:w-auto overflow-x-auto pb-1">
                     <div className="bg-gray-50 border p-3 rounded-xl flex-1 md:w-32">
-                        <div className="text-[10px] font-bold text-gray-400">총 계약금액</div>
+                        <div className="text-[10px] font-bold text-gray-400">납품금액(VAT제외)</div>
+                        <div className="text-sm font-black text-gray-700">₩{Math.floor(contractAmount / 1.1).toLocaleString()}</div>
+                    </div>
+                    <div className="bg-gray-50 border p-3 rounded-xl flex-1 md:w-32">
+                        <div className="text-[10px] font-bold text-gray-400">총 계약금액(VAT 포함)</div>
                         <div className="text-sm font-black text-gray-700">₩{contractAmount.toLocaleString()}</div>
                     </div>
                     <div className="bg-blue-50 border border-blue-100 p-3 rounded-xl flex-1 md:w-32">
@@ -92,10 +96,10 @@ const PaymentForm = ({ data, onChange, contractAmount = 0 }) => {
                             <th className="px-2 py-3 border-r">발행 내역 (계산서 등)</th>
                             <th className="px-2 py-3 border-r">날짜</th>
                             <th className="px-2 py-3 border-r">품목</th>
-                            <th className="px-2 py-3 border-r w-12">수량</th>
+                            <th className="px-2 py-3 border-r w-20">수량</th>
                             <th className="px-2 py-3 border-r w-24">단가</th>
                             <th className="px-2 py-3 border-r w-28">공급가액</th>
-                            <th className="px-2 py-3 border-r w-24">부가세</th>
+                            <th className="px-2 py-3 border-r w-16">부가세</th>
                             <th className="px-2 py-3 border-r w-28 text-blue-600">총합계</th>
                             <th className="px-2 py-3 border-r">결제 회차/상태</th>
                             <th className="px-2 py-3">삭제</th>
