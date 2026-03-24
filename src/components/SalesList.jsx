@@ -45,6 +45,12 @@ const SalesList = ({ records, onSelect, onDelete, onCreate, userRole }) => {
                             />
                         </div>
                         <button
+                            onClick={onCreate}
+                            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded-lg font-bold shadow transition-all active:scale-95 flex items-center gap-1 shrink-0 text-sm"
+                        >
+                            신규
+                        </button>
+                        <button
                             onClick={() => {
                                 const date = new Date().toISOString().slice(0, 10);
                                 exportToExcel(records, `Sales_Total_Backup_${date}.xlsx`);
@@ -54,12 +60,6 @@ const SalesList = ({ records, onSelect, onDelete, onCreate, userRole }) => {
                         >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
                             엑셀 전체
-                        </button>
-                        <button
-                            onClick={onCreate}
-                            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded-lg font-bold shadow transition-all active:scale-95 flex items-center gap-1 shrink-0 text-sm"
-                        >
-                            신규
                         </button>
                     </div>
                 </div>
