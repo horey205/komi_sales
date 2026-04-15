@@ -58,56 +58,22 @@ const SalesList = ({ records, onSelect, onDelete, onCreate, userRole }) => {
 
                 {/* 단계별 필터 탭 (강조된 디자인) */}
                 <div className="flex overflow-x-auto pb-2 scrollbar-none gap-2 px-1">
-                    <button
-                        onClick={() => setStatusFilter('전체')}
-                        className={`px-5 py-2.5 rounded-2xl text-xs font-black whitespace-nowrap transition-all flex flex-col items-center gap-1 group ${
-                            statusFilter === '전체'
-                                ? 'bg-blue-600 text-white shadow-xl shadow-blue-100 translate-y-[-2px]'
-                                : 'bg-gray-50 text-gray-500 hover:bg-white hover:shadow-md border border-transparent hover:border-gray-100'
-                        }`}
-                    >
-                        <span className={`text-[10px] opacity-70 ${statusFilter === '전체' ? 'text-blue-100' : 'text-gray-400'}`}>
-                            ALL
-                        </span>
-                        전체 ({records.length})
-                    </button>
-                    {steps.map((step, idx) => {
-                        const count = records.filter(r => steps[r.data?.currentStep || 0] === step).length;
-                        return (
-                            <button
-                                key={step}
-                                onClick={() => setStatusFilter(step)}
-                                className={`px-5 py-2.5 rounded-2xl text-xs font-black whitespace-nowrap transition-all flex flex-col items-center gap-1 group ${
-                                    statusFilter === step
-                                        ? 'bg-blue-600 text-white shadow-xl shadow-blue-100 translate-y-[-2px]'
-                                        : 'bg-gray-50 text-gray-500 hover:bg-white hover:shadow-md border border-transparent hover:border-gray-100'
-                                }`}
-                            >
-                                <span className={`text-[10px] opacity-70 ${statusFilter === step ? 'text-blue-100' : 'text-gray-400'}`}>
-                                    STEP {idx}
-                                </span>
-                                {step} ({count})
-                            </button>
-                        );
-                    })}
-                </div>
-            </div>
-
-            {/* 현재 리스트 현황 정보 바 추가 */}
-            <div className="mb-4 px-4 py-3 bg-gray-50 rounded-xl flex justify-between items-center border border-gray-100">
-                <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-2">
-                        <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></span>
-                        <span className="text-xs font-black text-gray-600">현재 필터링: <span className="text-blue-600">{filteredRecords.length}</span> / 전체 {records.length}건</span>
-                    </div>
-                    {searchTerm && (
-                        <div className="text-[10px] bg-white px-2 py-0.5 rounded-full border border-gray-200 text-gray-400 font-bold">
-                            🔍 "{searchTerm}" 검색 결과
-                        </div>
-                    )}
-                </div>
-                <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-                    {statusFilter} View Mode
+                    {['전체', ...steps].map((step, idx) => (
+                        <button
+                            key={step}
+                            onClick={() => setStatusFilter(step)}
+                            className={`px-5 py-2.5 rounded-2xl text-xs font-black whitespace-nowrap transition-all flex flex-col items-center gap-1 group ${
+                                statusFilter === step
+                                    ? 'bg-blue-600 text-white shadow-xl shadow-blue-100 translate-y-[-2px]'
+                                    : 'bg-gray-50 text-gray-500 hover:bg-white hover:shadow-md border border-transparent hover:border-gray-100'
+                            }`}
+                        >
+                            <span className={`text-[10px] opacity-70 ${statusFilter === step ? 'text-blue-100' : 'text-gray-400'}`}>
+                                {step === '전체' ? 'ALL' : `STEP ${idx}`}
+                            </span>
+                            {step}
+                        </button>
+                    ))}
                 </div>
             </div>
 
