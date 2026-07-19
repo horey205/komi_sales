@@ -228,7 +228,7 @@ function App() {
         </div>
       </header>
 
-      <main className="flex-1 p-2 sm:p-4 max-w-6xl mx-auto w-full mb-20">
+      <main className="flex-1 p-2 sm:p-6 w-full mb-20">
         {view === 'list' ? (
           <SalesList records={records} onSelect={(id) => window.location.hash = `#edit/${id}`} onCreate={async () => {
             const newId = Date.now().toString();
