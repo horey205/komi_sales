@@ -12,5 +12,5 @@ jobs:
     steps:
       - name: Ping Supabase API
         run: |
-          curl -i -X GET "https://zygqappdbfwysxfndxps.supabase.co/rest/v1/" \
+          curl -i -X GET "https://zygqappdbfwysxfndxps.supabase.co/auth/v1/health" \
             -H "apikey: sb_publishable_7Ns5aTfzWpm5x-A2ZBpHaA_2ZXlh-68"
