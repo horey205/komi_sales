@@ -1,0 +1,16 @@
+name: Keep Supabase Alive
+
+on:
+  schedule:
+    # Runs every 3 days at 00:00 UTC
+    - cron: '0 0 */3 * *'
+  workflow_dispatch: # Allows manual triggering from the GitHub Actions tab
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase API
+        run: |
+          curl -i -X GET "https://zygqappdbfwysxfndxps.supabase.co/rest/v1/" \
+            -H "apikey: sb_publishable_7Ns5aTfzWpm5x-A2ZBpHaA_2ZXlh-68"
