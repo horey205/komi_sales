@@ -9,8 +9,29 @@ on:
 jobs:
   ping:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # Allows pushing empty commits to keep repository active
     steps:
-      - name: Ping Supabase API
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Ping Supabase DB
         run: |
-          curl -i -X GET "https://zygqappdbfwysxfndxps.supabase.co/auth/v1/health" \
+          curl -i -X GET "https://zygqappdbfwysxfndxps.supabase.co/rest/v1/sales?select=id&limit=1" \
             -H "apikey: sb_publishable_7Ns5aTfzWpm5x-A2ZBpHaA_2ZXlh-68"
+
+      - name: Prevent GitHub Actions Suspension (Auto empty-commit every 30 days)
+        run: |
+          # Last commit time in seconds
+          LAST_COMMIT_DATE=$(git log -1 --format=%ct)
+          CURRENT_DATE=$(date +%s)
+          DIFF_DAYS=$(( (CURRENT_DATE - LAST_COMMIT_DATE) / 86400 ))
+          
+          # If more than 30 days have passed since the last commit, push an empty commit
+          if [ $DIFF_DAYS -ge 30 ]; then
+            git config --global user.name "github-actions[bot]"
+            git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit --allow-empty -m "chore: keep-alive empty commit to prevent workflow suspension"
+            git push
+          fi
+
