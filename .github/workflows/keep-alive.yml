@@ -13,7 +13,7 @@ jobs:
       contents: write # Allows pushing empty commits to keep repository active
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Ping Supabase DB
         run: |
