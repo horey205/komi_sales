@@ -2,8 +2,8 @@ name: Keep Supabase Alive
 
 on:
   schedule:
-    # Runs every 3 days at 00:00 UTC
-    - cron: '0 0 */3 * *'
+    # Runs every 12 hours (00:00, 12:00 UTC) to ensure activity & handle GitHub Actions schedule delays
+    - cron: '0 */12 * * *'
   workflow_dispatch: # Allows manual triggering from the GitHub Actions tab
 
 jobs:
@@ -15,9 +15,16 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v5
 
-      - name: Ping Supabase DB
+      - name: Ping Supabase DB & Auth
         run: |
-          curl -i -X GET "https://zygqappdbfwysxfndxps.supabase.co/rest/v1/sales?select=id&limit=1" \
+          TIMESTAMP=$(date +%s)
+          echo "Pinging Supabase REST API..."
+          curl -i -s -X GET "https://zygqappdbfwysxfndxps.supabase.co/rest/v1/sales?select=id&limit=1&_t=${TIMESTAMP}" \
+            -H "apikey: sb_publishable_7Ns5aTfzWpm5x-A2ZBpHaA_2ZXlh-68" \
+            -H "Authorization: Bearer sb_publishable_7Ns5aTfzWpm5x-A2ZBpHaA_2ZXlh-68"
+          
+          echo "Pinging Supabase Auth Health..."
+          curl -i -s -X GET "https://zygqappdbfwysxfndxps.supabase.co/auth/v1/health" \
             -H "apikey: sb_publishable_7Ns5aTfzWpm5x-A2ZBpHaA_2ZXlh-68"
 
       - name: Prevent GitHub Actions Suspension (Auto empty-commit every 30 days)
@@ -34,4 +41,5 @@ jobs:
             git commit --allow-empty -m "chore: keep-alive empty commit to prevent workflow suspension"
             git push
           fi
+
 
