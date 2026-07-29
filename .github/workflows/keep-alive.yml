@@ -17,11 +17,12 @@ jobs:
 
       - name: Ping Supabase DB & Auth
         run: |
-          TIMESTAMP=$(date +%s)
           echo "Pinging Supabase REST API..."
-          curl -i -s -X GET "https://zygqappdbfwysxfndxps.supabase.co/rest/v1/sales?select=id&limit=1&_t=${TIMESTAMP}" \
+          curl -i -s -X GET "https://zygqappdbfwysxfndxps.supabase.co/rest/v1/sales?select=id&limit=1" \
             -H "apikey: sb_publishable_7Ns5aTfzWpm5x-A2ZBpHaA_2ZXlh-68" \
-            -H "Authorization: Bearer sb_publishable_7Ns5aTfzWpm5x-A2ZBpHaA_2ZXlh-68"
+            -H "Authorization: Bearer sb_publishable_7Ns5aTfzWpm5x-A2ZBpHaA_2ZXlh-68" \
+            -H "Cache-Control: no-cache" \
+            -H "Pragma: no-cache"
           
           echo "Pinging Supabase Auth Health..."
           curl -i -s -X GET "https://zygqappdbfwysxfndxps.supabase.co/auth/v1/health" \
