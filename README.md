@@ -1,16 +1,34 @@
-# React + Vite
+# Komi Sales CRM (영업 상담 관리 시스템)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React 19 + Vite 기반의 반응형 영업 상담 및 프로세스 관리 시스템입니다.
 
-Currently, two official plugins are available:
+- **사이트 URL**: [https://horey205.github.io/komi_sales/](https://horey205.github.io/komi_sales/)
+- **데이터베이스**: Supabase (PostgreSQL / REST API)
+- **호스팅**: GitHub Pages
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+---
 
-## React Compiler
+## ⏰ Supabase 무료 플랜 비활성화(Pause) 방지 설정
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Supabase 무료 티어는 7일간 DB 요청이 없을 시 프로젝트가 일시정지(Paused)됩니다. 이를 방지하기 위해 **이중 자동화(Dual Keep-Alive)**로 운영 중입니다.
 
-## Expanding the ESLint configuration
+### 1. cron-job.org (주 자동화 - 권장)
+- **주기**: 매 12시간마다 실행 (`0 */12 * * *`, Asia/Seoul)
+- **요청 URL**: `https://zygqappdbfwysxfndxps.supabase.co/rest/v1/sales?select=id&limit=1`
+- **Request Method**: `GET`
+- **Request Headers**:
+  - `apikey`: `sb_publishable_7Ns5aTfzWpm5x-A2ZBpHaA_2ZXlh-68`
+  - `Authorization`: `Bearer sb_publishable_7Ns5aTfzWpm5x-A2ZBpHaA_2ZXlh-68`
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+### 2. GitHub Actions (보조 자동화)
+- **워크플로우 파일**: `.github/workflows/keep-alive.yml`
+- **주기**: 매일 1회 (`cron: '0 0 * * *'`) 실행
+- Supabase REST API 및 Auth Health 체크 핑 전송 + 30일 주기 빈 커밋(활동 유지) 푸시
+
+---
+
+## 🛠️ 개발 및 배포
+
+- **로컬 실행**: `npm run dev`
+- **빌드 및 배포**: `업데이트_및_배포.bat` 실행 시 빌드 후 GitHub Pages로 자동 배포
+
